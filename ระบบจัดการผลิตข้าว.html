@@ -1,0 +1,934 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ระบบจัดการผลิตข้าว</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600&display=swap">
+<style>
+/* Layout: ศูนย์ควบคุมแบบเรียบ — แถบหัว + แท็บสองหน้า (ใบสั่งผลิต / ชนิดข้าวและสูตร), รายการเป็นแถวกว้างเต็มคอลัมน์เดียว, ฟอร์มเปิดเป็นแผ่นซ้อน */
+:root{
+  --bg:#F2F4F0; --surface:#FFFFFF; --surface2:#E9EEE8; --line:#D5DDD3;
+  --fg:#1B2620; --muted:#5D6B62;
+  --accent:#2E6B4F; --accent-fg:#FFFFFF; --accent-soft:#DCEBE2;
+  --warn:#8F5E0E; --warn-soft:#F6E7C8;
+  --danger:#B23A32; --danger-soft:#F7DDDA; --info:#2F6DA8; --info-soft:#DDE9F5;
+  --c0:#2F8F6B; --c1:#D49A2A; --c2:#3B7DB5; --c3:#B65A8A; --c4:#7A8F3A; --c5:#C26A4A;
+  --font-body:'Noto Sans Thai',system-ui,sans-serif;
+  --font-head:'Prompt','Noto Sans Thai',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1A221E; --surface2:#222C27; --line:#2F3B35;
+  --fg:#E6EDE8; --muted:#9AA99F;
+  --accent:#5FB88B; --accent-fg:#0E1A13; --accent-soft:#21382D;
+  --warn:#E0B15A; --warn-soft:#3A2F16;
+  --danger:#EF8077; --danger-soft:#3C1F1D; --info:#7DB4E8; --info-soft:#1F3347; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1A221E; --surface2:#222C27; --line:#2F3B35;
+  --fg:#E6EDE8; --muted:#9AA99F;
+  --accent:#5FB88B; --accent-fg:#0E1A13; --accent-soft:#21382D;
+  --warn:#E0B15A; --warn-soft:#3A2F16;
+  --danger:#EF8077; --danger-soft:#3C1F1D; --info:#7DB4E8; --info-soft:#1F3347; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.55;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--font-head);font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:22px}
+h2{font-size:18px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand small{display:block;color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px}
+.tab{border:0;background:transparent;padding:8px 16px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--danger)}
+.btn.danger.solid{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.notice{background:var(--warn-soft);color:var(--warn);padding:8px 12px;border-radius:8px;font-size:13px}
+.summary{display:flex;gap:28px;flex-wrap:wrap;padding:14px 18px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.summary div{display:flex;flex-direction:column}
+.summary b{font-family:var(--font-head);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.summary span{color:var(--muted);font-size:13px}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toolbar .grow{flex:1;min-width:160px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;padding:5px 12px;border-radius:99px;cursor:pointer;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:60px}
+
+.list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.row{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.row>*{min-width:0}
+.no{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.name{font-family:var(--font-head);font-weight:600;font-size:17px}
+.meta{display:flex;gap:6px 18px;flex-wrap:wrap;color:var(--muted);font-size:14px}
+.meta b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:1px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.pill.running{background:var(--accent-soft);color:var(--accent)}
+.pill.paused{background:var(--warn-soft);color:var(--warn)}
+.pill.done{background:var(--surface2);color:var(--muted)}
+.bpgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.bpgrid label{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+@media (max-width:480px){.bpgrid{grid-template-columns:1fr}}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:500}
+.detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 24px;padding-top:10px}
+.detail h3{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:6px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.kv:last-child{border-bottom:0}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{background:var(--surface2);padding:2px 10px;border-radius:6px;font-size:13px;font-variant-numeric:tabular-nums}
+
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface2)}
+.bar span{display:block;height:100%;min-width:2px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+.recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+
+.empty{text-align:center;color:var(--muted);padding:36px 16px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;gap:12px;align-items:center}
+
+.scrim{position:fixed;inset:0;background:rgba(10,18,14,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;z-index:20;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--surface);border-radius:14px;width:100%;max-width:600px;margin:auto;padding:20px;display:flex;flex-direction:column;gap:14px;border:1px solid var(--line)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label,.lbl{font-size:13px;color:var(--muted);font-weight:500}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.grid2{grid-template-columns:1fr}}
+.foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+.lines{display:flex;flex-direction:column;gap:8px}
+.line{display:grid;grid-template-columns:1fr 96px 36px;gap:8px;align-items:center}
+.line.bp{grid-template-columns:1fr 110px 36px}
+.x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;border-radius:6px;height:36px}
+.x:hover{color:var(--danger)}
+.meter{display:flex;flex-direction:column;gap:6px}
+.meter .txt{display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums}
+.meter .ok{color:var(--accent);font-weight:600}
+.meter .bad{color:var(--danger);font-weight:600}
+.hint{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(20px,env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:10px;z-index:30;font-size:14px;max-width:90vw}
+.who{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.role{padding:2px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.code{display:inline-block;padding:0 8px;border-radius:5px;background:var(--surface2);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.orow{display:grid;grid-template-columns:auto 1fr auto auto;gap:6px 14px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 14px;cursor:pointer}
+.orow:hover{border-color:var(--accent)}
+.orow .pill{min-width:84px;text-align:center}
+.orow .om{display:flex;flex-direction:column;min-width:0}
+.orow .om b{font-weight:600;overflow-wrap:anywhere}
+.orow .ot{color:var(--muted);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.orow .chev{color:var(--muted);font-size:20px}
+@media (max-width:560px){.orow{grid-template-columns:auto 1fr auto}.orow .ot{grid-column:1/-1;text-align:left}}
+.sheet .detail{grid-template-columns:1fr}
+.ck{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--surface)}
+.ck input{width:auto}
+.ck:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tw{overflow-x:auto}
+.tbl{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th{color:var(--muted);font-weight:500;font-size:13px;white-space:nowrap}
+.tbl th,.tbl td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td:first-child{min-width:140px}
+.tbl tfoot td{font-weight:600;border-bottom:0}
+.tbl tr[data-act]{cursor:pointer}
+.tbl tr[data-act]:hover td{background:var(--surface2)}
+.dsec{display:flex;flex-direction:column;gap:8px}
+.dsec>h2{font-size:16px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px 20px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.kpis div{display:flex;flex-direction:column;min-width:0}
+.kpis b{font-family:var(--font-head);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpis span{color:var(--muted);font-size:13px}
+.kpis small{color:var(--muted);font-size:12px}
+.chart{display:flex;gap:4px;align-items:flex-end;height:170px;min-width:100%}
+.chart .col{flex:1;min-width:14px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px}
+.chart .bars{display:flex;gap:2px;align-items:flex-end;flex:1;width:100%;justify-content:center}
+.chart .bars i{display:block;width:40%;max-width:22px;border-radius:3px 3px 0 0;min-height:0}
+.chart .lb{font-size:11px;color:var(--muted);height:14px;white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.line.wr{grid-template-columns:minmax(0,1fr) 92px 104px 36px}
+.line.fr{grid-template-columns:minmax(0,1fr) 170px 84px 36px}
+@media (max-width:480px){.line.wr,.line.fr{grid-template-columns:1fr 1fr 36px}.line.wr>input:first-child,.line.fr>input:first-child{grid-column:1/-1}}
+.pill.open{background:var(--info-soft);color:var(--info)}
+.orow>.btn{justify-self:end}
+div.orow{cursor:pointer}
+@media (max-width:560px){.orow>.btn,.orow>.chev{grid-column:3;grid-row:1}}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
+</style>
+
+<div class="wrap" id="app" hidden>
+  <header>
+    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>เริ่มผลิต · หยุดชั่วคราว · ผลพลอยได้ · สูตรผสม</small></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
+      <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
+      <button class="tab" role="tab" id="tab-dash" data-act="tab" data-tab="dash">แดชบอร์ด</button>
+      <button class="tab" role="tab" id="tab-recipes" data-act="tab" data-tab="recipes">ชนิดข้าว / สูตร</button>
+    </div>
+    <div id="who" class="who"></div>
+  </header>
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="plans-view" class="wrap" style="gap:14px" hidden>
+    <div id="psummary" class="summary"></div>
+    <div class="toolbar">
+      <div class="chips">
+        <button class="chip" data-pfilter="all">ทั้งหมด</button>
+        <button class="chip" data-pfilter="open">รอเริ่มผลิต</button>
+        <button class="chip" data-pfilter="started">เริ่มผลิตแล้ว</button>
+      </div>
+      <select id="ptype" aria-label="กรองตามชนิดข้าว" style="width:auto;max-width:100%"></select>
+      <input id="pq" class="grow" type="search" placeholder="ค้นหาเลขที่ หรือรหัสสูตร">
+      <button class="btn primary" id="pnewbtn" data-act="new-plan">+ ออกใบสั่งผลิต</button>
+    </div>
+    <div id="plist" class="list"></div>
+  </section>
+
+  <section id="orders-view" class="wrap" style="gap:14px">
+    <div id="summary" class="summary"></div>
+    <div class="toolbar">
+      <div class="chips" id="chips">
+        <button class="chip" data-filter="all">ทั้งหมด</button>
+        <button class="chip" data-filter="running">กำลังผลิต</button>
+        <button class="chip" data-filter="paused">หยุดชั่วคราว</button>
+        <button class="chip" data-filter="done">ผลิตเสร็จ</button>
+      </div>
+      <select id="ftype" aria-label="กรองตามชนิดข้าว" style="width:auto;max-width:100%"></select>
+      <input id="q" class="grow" type="search" placeholder="ค้นหาเลขที่ หรือรหัสสูตร">
+      <button class="btn primary" data-act="pick-plan">+ เริ่มการผลิตจากแผน</button>
+    </div>
+    <div id="list" class="list"></div>
+  </section>
+
+  <section id="dash-view" class="wrap" style="gap:14px" hidden>
+    <div id="dash-head" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="align-items:center">
+        <div class="tabs" id="dseg">
+          <button class="tab" data-act="dkind" data-k="day">รายวัน</button><button class="tab" data-act="dkind" data-k="week">รายสัปดาห์</button><button class="tab" data-act="dkind" data-k="month">รายเดือน</button><button class="tab" data-act="dkind" data-k="year">รายปี</button>
+        </div>
+        <div class="actions" style="align-items:center">
+          <button class="btn sm" data-act="dprev" aria-label="ก่อนหน้า">‹</button>
+          <input id="d-date" type="date" aria-label="เลือกวันที่" style="width:auto">
+          <button class="btn sm" data-act="dnext" aria-label="ถัดไป">›</button>
+          <button class="btn sm" data-act="dtoday">วันนี้</button>
+        </div>
+      </div>
+      <div class="name" id="d-label"></div>
+      <div class="toolbar">
+        <select id="d-type" aria-label="กรองตามชนิดข้าว" style="width:auto;max-width:100%"></select>
+        <select id="d-status" aria-label="กรองตามสถานะ" style="width:auto"><option value="all">ทุกสถานะ</option><option value="running">กำลังผลิต</option><option value="paused">หยุดชั่วคราว</option><option value="done">ผลิตเสร็จ</option></select>
+        <input id="d-q" class="grow" type="search" placeholder="ค้นหาเลขที่ หรือรหัสสูตร">
+        <button class="btn sm" data-act="dclear">ล้างตัวกรอง</button>
+      </div>
+    </div>
+    <div id="dash-body" style="display:flex;flex-direction:column;gap:14px"></div>
+  </section>
+
+  <section id="recipes-view" class="wrap" style="gap:14px" hidden>
+    <div class="row" style="align-items:center">
+      <p class="hint" style="margin:0">กำหนดสูตรผสมของข้าวแต่ละชนิด ส่วนผสมรวมกันต้องได้ 100%</p>
+      <button class="btn primary" data-act="new-type">+ เพิ่มชนิดข้าว</button>
+    </div>
+    <div id="types" class="recipes"></div>
+  </section>
+</div>
+
+<div id="login" class="scrim" style="z-index:40" hidden></div>
+<div id="modal" class="scrim" hidden><div id="sheet" class="sheet" role="dialog" aria-modal="true"></div></div>
+<div id="toast" class="toast" hidden></div>
+<datalist id="dl-ing"></datalist>
+<datalist id="dl-why"><option value="เครื่องจักรขัดข้อง"><option value="ไฟฟ้าดับ"><option value="รอวัตถุดิบ"><option value="พักเบรก"><option value="ทำความสะอาด / ปรับเครื่อง"><option value="เปลี่ยนตะแกรง"></datalist>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:2});
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const dt=s=>s?new Date(s).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'-';
+const dd=s=>s?new Date(s+'T00:00').toLocaleDateString('th-TH',{dateStyle:'medium'}):'-';
+const nowLocal=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
+const dur=(a,b)=>{const m=Math.round((new Date(b)-new Date(a))/60000);if(!(m>=0))return '-';const h=Math.floor(m/60);return (h?h+' ชม. ':'')+(m%60)+' นาที'};
+
+const BP=['ปลายเบอร์ 1','ปลายเบอร์ 2','ปลายเบอร์ 3','ปลายเบอร์ 4','ข้าวดีดเบอร์ 2','ข้าวดีดเบอร์ 3','รำ'];
+const LABEL={open:'รอเริ่มผลิต',running:'กำลังผลิต',paused:'หยุดชั่วคราว',done:'ผลิตเสร็จ'};
+const st=o=>o.status==='done'?'done':o.status==='paused'?'paused':'running';
+const mins=(a,b)=>Math.max(0,Math.round((new Date(b)-new Date(a))/60000));
+const hm=m=>{const h=Math.floor(m/60);return (h?h+' ชม. ':'')+(m%60)+' นาที'};
+const lossStr=m=>m?`${hm(m)} (${fmt(Math.round(m/60*100)/100)} ชม.)`:'0 ชม.';
+function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
+function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
+const isAdmin=()=>S.role==='admin';
+const IN_TANKS=['AA02','AA03','AA08','A1A1'];
+const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
+const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const MONL=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const DOW=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+const tn=kg=>Number((kg||0)/1000).toLocaleString('th-TH',{maximumFractionDigits:3});
+const inputsOf=o=>(o.inputs||[]).map(x=>({name:x.name||'',tank:x.tank||'',kg:x.kg}));
+const tankTags=a=>(a||[]).length?a.map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—';
+const inTanksOf=o=>o.inTanks&&o.inTanks.length?o.inTanks:[...new Set(inputsOf(o).map(r=>r.tank).filter(Boolean))];
+function mx(o){
+  const done=st(o)==='done',total=done&&o.startAt?mins(o.startAt,o.endAt):0,loss=lossMin(o),net=Math.max(0,total-loss);
+  const inKg=(o.inputs||[]).reduce((a,x)=>a+(+x.kg||0),0),byKg=(o.byproducts||[]).reduce((a,x)=>a+(+x.kg||0),0),hasIn=inKg>0;
+  return{done,total,loss,net,inKg,byKg,hasIn,outKg:done&&hasIn?inKg-byKg:null,rate:done&&hasIn&&net>0?(inKg/1000)/(net/60):null};
+}
+const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
+async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
+const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
+let db=null;
+const LS='rice-production-v1';
+
+/* ---------- storage: shared db when available, otherwise this browser ---------- */
+function lsLoad(){try{const j=JSON.parse(localStorage.getItem(LS)||'{}');S.types=j.types||[];S.orders=j.orders||[];S.plans=j.plans||[]}catch(e){}}
+function lsSave(){try{localStorage.setItem(LS,JSON.stringify({types:S.types,orders:S.orders,plans:S.plans}))}catch(e){}}
+const KEY={riceTypes:'types',orders:'orders',plans:'plans'};
+async function put(coll,id,data){
+  try{
+    if(db){await db.collection(coll).doc(id).set(data)}
+    else{const arr=S[KEY[coll]];const rec={...data,id};const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=rec;else arr.push(rec);lsSave();render()}
+    return true;
+  }catch(e){toast('บันทึกไม่สำเร็จ'+(e&&e.code==='invalid_argument'?' (ไม่มีสิทธิ์แก้ไขข้อมูล)':''));return false}
+}
+async function del(coll,id){
+  try{
+    if(db){await db.collection(coll).doc(id).delete()}
+    else{S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);lsSave();render()}
+    return true;
+  }catch(e){toast('ลบไม่สำเร็จ');return false}
+}
+function listen(coll){
+  db.collection(coll).onSnapshot(snap=>{
+    S[KEY[coll]]=snap.docs.map(d=>({...d.data(),id:d.id}));
+    render();
+  },()=>{notice('เชื่อมต่อฐานข้อมูลไม่ได้ในขณะนี้')});
+}
+async function saveAdminHash(h){
+  S.adminHash=h;
+  if(db){await db.doc('settings/admin').set({hash:h})}else{try{localStorage.setItem(LS+'-admin',h)}catch(e){}}
+}
+async function init(){
+  try{S.role=sessionStorage.getItem('rice-role')||null}catch(e){}
+  try{S.adminHash=localStorage.getItem(LS+'-admin')||null}catch(e){}
+  lsLoad();render();
+  let ok=null;
+  try{if(window.claude&&claude.use){ok=await Promise.race([claude.use('db'),new Promise(r=>setTimeout(()=>r(null),6000))])}}catch(e){}
+  if(ok){db=ok;S.types=[];S.orders=[];S.plans=[];S.adminHash=null;listen('riceTypes');listen('orders');listen('plans');db.doc('settings/admin').onSnapshot(d=>{S.adminHash=d.exists?d.data().hash:null},()=>{})}
+  else{notice('ข้อมูลเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น (ยังไม่ได้เชื่อมฐานข้อมูลที่ใช้ร่วมกัน)')}
+}
+
+/* ---------- helpers ---------- */
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
+function notice(m){const n=$('#notice');n.textContent=m;n.hidden=!m}
+function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})" title="${esc(x.name)} ${fmt(x.pct)}%"></span>`).join('')+'</div>'}
+function orderNo(){const p='SP-B026-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
+function openModal(html,mount){$('#sheet').innerHTML=html;$('#modal').hidden=false;document.body.style.overflow='hidden';if(mount)mount();const f=$('#sheet input:not([readonly]),#sheet select');if(f&&!f.value)f.focus()}
+function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.body.style.overflow=''}
+function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forEach(x=>s.add(x.name)));$('#dl-ing').innerHTML=[...s].map(v=>`<option value="${esc(v)}">`).join('')}
+
+/* ---------- login ---------- */
+function showLogin(){
+  const L=$('#login');
+  L.innerHTML=`<div class="sheet" style="max-width:420px"><div><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
+  <button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>
+  <div class="field"><label for="l-pw">ธุรการ ใส่รหัสผ่าน</label><input id="l-pw" type="password" autocomplete="off"></div>
+  <button class="btn" data-act="login-admin" style="padding:12px">เข้าใช้งานในฐานะธุรการ</button></div>`;
+  L.hidden=false;
+  $('#l-pw').addEventListener('keydown',e=>{if(e.key==='Enter')loginAdmin()});
+}
+function setRole(r){S.role=r;try{r?sessionStorage.setItem('rice-role',r):sessionStorage.removeItem('rice-role')}catch(e){}
+  if(r){$('#login').hidden=true;$('#login').innerHTML=''}render()}
+async function loginAdmin(){
+  const v=$('#l-pw').value;if(!v)return toast('ใส่รหัสผ่านธุรการ');
+  const h=await sha(v),want=S.adminHash||await sha('1234');
+  if(h!==want){toast('รหัสผ่านไม่ถูกต้อง');$('#l-pw').value='';return}
+  setRole('admin');
+}
+function pwForm(){
+  openModal(`<h2>เปลี่ยนรหัสผ่านธุรการ</h2>
+  <div class="field"><label for="w1">รหัสผ่านใหม่</label><input id="w1" type="password" autocomplete="off"></div>
+  <div class="field"><label for="w2">ยืนยันรหัสผ่านใหม่</label><input id="w2" type="password" autocomplete="off"></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="w-save">บันทึกรหัสผ่าน</button></div>`,()=>{
+    $('#w-save').onclick=async()=>{
+      const a=$('#w1').value,b=$('#w2').value;
+      if(a.length<4)return toast('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร');
+      if(a!==b)return toast('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
+      try{await saveAdminHash(await sha(a));closeModal();toast('เปลี่ยนรหัสผ่านแล้ว')}catch(e){toast('บันทึกรหัสผ่านไม่สำเร็จ')}
+    };
+  });
+}
+function renderWho(){
+  $('#who').innerHTML=S.role?`<span class="role">${isAdmin()?'ธุรการ':'พนักงาน'}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':''}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
+}
+
+/* ---------- render ---------- */
+
+function render(){
+  renderWho();
+  if(!S.role){$('#app').hidden=true;if($('#login').hidden)showLogin();return}
+  $('#app').hidden=false;
+  if(!isAdmin()&&S.tab==='recipes')S.tab='orders';
+  $('#tab-recipes').hidden=!isAdmin();
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#dash-view').hidden=S.tab!=='dash';
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.pfilter?c.dataset.pfilter===S.pf:c.dataset.filter===S.filter));
+  ingDatalist();renderSummary();renderOrders();renderPlans();renderTypes();if(S.tab==='dash')renderDash();
+}
+function renderSummary(){
+  const c={running:0,paused:0,done:0};let loss=0;
+  S.orders.forEach(o=>{c[st(o)]++;loss+=lossMin(o)});
+  $('#summary').innerHTML=`<div><b>${c.running}</b><span>กำลังผลิต</span></div><div><b>${c.paused}</b><span>หยุดชั่วคราว</span></div>
+  <div><b>${c.done}</b><span>ผลิตเสร็จ</span></div><div><b>${fmt(loss/60)}</b><span>เวลาสูญเสียรวม (ชม.)</span></div>`;
+}
+function orderRow(o){
+  const s=st(o),code=codeOf(o),loss=lossMin(o);
+  return `<button class="orow" data-act="open" data-id="${o.id}">
+    <span class="pill ${s}">${LABEL[s]}</span>
+    <span class="om"><b>${esc(o.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(o.no)}</span></span>
+    <span class="ot">${fmt(o.qty)} กก. · เริ่ม ${dts(o.startAt)}${loss?` · สูญเสีย ${fmt(Math.round(loss/60*100)/100)} ชม.`:''}</span>
+    <span class="chev" aria-hidden="true">›</span></button>`;
+}
+function orderDetail(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  const s=st(o),done=s==='done',paused=s==='paused',code=codeOf(o),pauses=o.pauses||[];
+  const ing=(o.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${fmt(o.qty*x.pct/100)} กก.</b></div>`).join('');
+  const loss=lossMin(o),endRef=done?o.endAt:nowLocal();
+  const total=o.startAt?mins(o.startAt,endRef):0;
+  const open=pauses.find(p=>!p.to);
+  const pl=pauses.map((p,i)=>`<div class="kv"><span>${esc(p.reason||'ไม่ระบุเหตุผล')}<br><span class="hint">${dt(p.from)} – ${p.to?dt(p.to):'ยังหยุดอยู่'}</span></span><span><b>${hm(mins(p.from,p.to||endRef))}</b>${isAdmin()?` <button class="x" style="height:24px;font-size:15px" data-act="del-pause" data-id="${o.id}" data-i="${i}" aria-label="ลบรายการหยุด">×</button>`:''}</span></div>`).join('');
+  const bp=o.byproducts||[];
+  const m=mx(o);
+  const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก.':'—'}</b></div>`).join('');
+  const calcBlock=`<div><h3 class="lbl" style="margin-bottom:6px">น้ำหนัก input และถัง</h3>${inRows||'<div class="hint">ยังไม่มีน้ำหนัก input</div>'}
+    <div class="kv"><span>ถัง input</span><b>${tankTags(inTanksOf(o))}</b></div>
+    <div class="kv"><span>ถังเก็บข้าวที่ผลิตได้</span><b>${(o.outTanks||[]).length?(o.outTanks||[]).map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—'}</b></div></div>
+    ${m.hasIn?`<div><h3 class="lbl" style="margin-bottom:6px">ผลคำนวณ</h3>
+      <div class="kv"><span>น้ำหนัก input รวม</span><b>${fmt(m.inKg)} กก.</b></div>
+      <div class="kv"><span>อัตราการผลิต (input ÷ เวลาผลิตจริง)</span><b>${m.rate!=null?fmt(m.rate)+' ตัน/ชม.':'คำนวณเมื่อผลิตเสร็จ'}</b></div>
+      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก.</b></div><div class="kv"><span>ข้าวที่ผลิตได้ (input − ผลพลอยได้)</span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน)</b></div>`:''}</div>`:''}`;
+  const acts=[];
+  if(!done){acts.push(paused?`<button class="btn primary" data-act="resume" data-id="${o.id}">เริ่มผลิตต่อ</button>`:`<button class="btn" data-act="pause" data-id="${o.id}">หยุดชั่วคราว</button>`);
+    acts.push(`<button class="btn ${paused?'':'primary'}" data-act="record" data-id="${o.id}">ผลิตเสร็จ / บันทึกผล</button>`)}
+  if(isAdmin()){
+    if(done){acts.push(`<button class="btn" data-act="record" data-id="${o.id}">แก้ไขผลการผลิต</button>`,`<button class="btn" data-act="reopen" data-id="${o.id}">ย้อนกลับเป็นกำลังผลิต</button>`)}
+    acts.push(`<button class="btn" data-act="weight" data-id="${o.id}">ใส่น้ำหนัก input</button>`,`<button class="btn" data-act="edit-order" data-id="${o.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-order" data-id="${o.id}">ลบ</button>`)}
+  openModal(`<div class="row"><div><div class="no">${esc(o.no)} <span class="pill ${s}">${LABEL[s]}</span></div>
+      <div class="name">${esc(o.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div>
+      <button class="btn sm" data-act="close">ปิด</button></div>
+    <div class="meta"><span>จำนวน <b>${fmt(o.qty)} กก.</b></span><span>เริ่มผลิต <b>${dt(o.startAt)}</b></span>${done?`<span>เสร็จ <b>${dt(o.endAt)}</b></span>`:''}${o.due?`<span>กำหนดเสร็จ <b>${dd(o.due)}</b></span>`:''}</div>
+    ${o.note?`<div class="hint">หมายเหตุ: ${esc(o.note)}</div>`:''}
+    ${paused&&open?`<div class="notice">หยุดผลิตตั้งแต่ ${dt(open.from)} (${hm(mins(open.from,endRef))}) · ${esc(open.reason||'ไม่ระบุเหตุผล')}</div>`:''}
+    ${o.startAt?`<div><h3 class="lbl" style="margin-bottom:6px">เวลา</h3>
+      <div class="kv"><span>${done?'ใช้เวลาทั้งหมด':'ผ่านมาแล้ว'}</span><b>${hm(total)}</b></div>
+      <div class="kv"><span>เวลาสูญเสียจากการหยุด</span><b style="color:${loss?'var(--warn)':'inherit'}">${lossStr(loss)}</b></div>
+      <div class="kv"><span>เวลาผลิตจริง</span><b>${hm(Math.max(0,total-loss))}</b></div></div>`:''}
+    ${calcBlock}
+    <div class="detail">
+      <div><h3>การหยุดผลิต (${pauses.length} ครั้ง)</h3>${pl||'<span class="hint">ยังไม่มีการหยุด</span>'}</div>
+      <div><h3>สูตรผสม (คำนวณจาก ${fmt(o.qty)} กก.)</h3>${ing}</div>
+      ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
+    </div>
+    ${acts.length?`<div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`:''}`);
+}
+function renderOrders(){
+  const sel=$('#ftype'),opts='<option value="">ทุกชนิดข้าว</option>'+[...S.types].sort((a,b)=>a.name.localeCompare(b.name,'th')).map(t=>`<option value="${t.id}">${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('');
+  if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}
+  if(S.typeFilter&&!S.types.some(t=>t.id===S.typeFilter))S.typeFilter='';
+  sel.value=S.typeFilter;
+  const q=S.q.trim().toLowerCase();
+  let rows=S.orders.filter(o=>(S.filter==='all'||S.filter===st(o))&&(!S.typeFilter||o.typeId===S.typeFilter)&&(!q||(o.no+' '+o.typeName+' '+codeOf(o)).toLowerCase().includes(q)));
+  rows.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  if(!S.orders.length){
+    $('#list').innerHTML=`<div class="empty"><div><b>ยังไม่มีรายการผลิต</b><br>ธุรการออกใบสั่งผลิตที่หน้าแผนการผลิต แล้วเริ่มการผลิตจากแผน</div>
+    <div class="actions"><button class="btn primary" data-act="pick-plan">+ เริ่มการผลิตจากแผน</button>${isAdmin()?'<button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button>':''}</div></div>`;return;
+  }
+  $('#list').innerHTML=rows.length?rows.map(orderRow).join(''):'<div class="empty">ไม่พบรายการที่ตรงกับตัวกรอง</div>';
+}
+function renderTypes(){
+  if(!S.types.length){$('#types').innerHTML=`<div class="empty" style="grid-column:1/-1"><div><b>ยังไม่มีชนิดข้าว</b><br>เพิ่มชนิดข้าวพร้อมสูตรผสมเพื่อใช้เปิดใบสั่งผลิต</div>
+    <div class="actions"><button class="btn primary" data-act="new-type">+ เพิ่มชนิดข้าว</button>${isAdmin()?'<button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button>':''}</div></div>`;return}
+  const types=[...S.types].sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  $('#types').innerHTML=types.map(t=>{
+    const used=S.orders.filter(o=>o.typeId===t.id).length;
+    return `<article class="card">
+      <div><div class="name">${esc(t.name)}</div><div class="no"><span class="code">${esc(t.code||'ไม่มีรหัส')}</span> ใช้ใน ${used} รายการ</div></div>
+      ${bar(t.formula)}
+      <div>${(t.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} </span><b>${fmt(x.pct)}%</b></div>`).join('')}</div>
+      ${t.note?`<p class="hint" style="margin:0">${esc(t.note)}</p>`:''}
+      ${isAdmin()?`<div class="actions"><button class="btn sm" data-act="edit-type" data-id="${t.id}">แก้ไข</button><button class="btn sm danger" data-act="del-type" data-id="${t.id}">ลบ</button></div>`:''}
+    </article>`}).join('');
+}
+
+/* ---------- order form ---------- */
+function orderForm(id,planId){
+  const o=id?S.orders.find(x=>x.id===id):null;
+  const pl=planId?S.plans.find(x=>x.id===planId):null,src=o||pl;
+  if(!S.types.length){if(isAdmin()){toast('เพิ่มชนิดข้าวและสูตรก่อนเริ่มการผลิต');setTab('recipes')}else toast('ยังไม่มีชนิดข้าว กรุณาให้ธุรการเพิ่มสูตรก่อน');return}
+  openModal(`<h2>${o?'แก้ไขรายการผลิต':'เริ่มการผลิต'}</h2>${pl?'<div class="hint">จากแผนการผลิต · ชนิดข้าวและจำนวนตามที่ธุรการสั่ง</div>':''}
+  <div class="grid2">
+    <div class="field"><label for="f-no">เลขที่ใบสั่ง</label><input id="f-no" value="${esc(src?src.no:orderNo())}" ${pl?'readonly':''}></div>
+    <div class="field"><label for="f-start">เวลาเริ่มผลิต</label><input id="f-start" type="datetime-local" value="${esc(o&&o.startAt?o.startAt:nowLocal())}"></div>
+  </div>
+  <div class="field"><label for="f-type">ชนิดข้าว</label><select id="f-type" ${pl?'disabled':''}>${S.types.map(t=>`<option value="${t.id}" ${src&&src.typeId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
+  <div class="grid2">
+    <div class="field"><label for="f-qty">จำนวนที่ผลิต (กก.)</label><input id="f-qty" type="number" min="1" step="any" inputmode="decimal" value="${src?src.qty:''}" ${pl?'readonly':''} placeholder="เช่น 1000"></div>
+    <div class="field"><label for="f-due">กำหนดเสร็จ (ถ้ามี)</label><input id="f-due" type="date" value="${esc(o?o.due:(pl?pl.plannedDate:''))}"></div>
+  </div>
+  <div id="f-prev"></div>
+  <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${o&&inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${o&&(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note:''))}</textarea></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
+    const prev=()=>{
+      const t=S.types.find(x=>x.id===$('#f-type').value),q=parseFloat($('#f-qty').value)||0;
+      $('#f-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':'';
+    };
+    $('#f-type').oninput=prev;$('#f-qty').oninput=prev;prev();
+    $('#f-save').onclick=async()=>{
+      const t=S.types.find(x=>x.id===$('#f-type').value),qty=parseFloat($('#f-qty').value),no=$('#f-no').value.trim(),startAt=$('#f-start').value;
+      if(!no)return toast('กรอกเลขที่ใบสั่ง');
+      if(!startAt)return toast('ใส่เวลาเริ่มผลิต');
+      if(!(qty>0))return toast('กรอกจำนวนที่ผลิต');
+      const formula=o&&o.typeId===t.id?o.formula:(pl?pl.formula:t.formula);
+      const inputs=o&&o.inputs?o.inputs:[];
+      const inTanks=[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank);
+      const outTanks=[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out);
+      const doc={...(o||{}),...(pl?{planId:pl.id}:{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,inputs,inTanks,outTanks,qty,startAt,due:$('#f-due').value,note:$('#f-note').value.trim(),status:o?o.status:'running',pauses:o?(o.pauses||[]):[],createdAt:o?o.createdAt:Date.now()};
+      delete doc.id;
+      const oid=o?o.id:uid();
+      if(await put('orders',oid,doc)){if(pl){const pd={...pl,status:'started',orderId:oid};delete pd.id;await put('plans',pl.id,pd)}closeModal();toast(o?'แก้ไขแล้ว':'เริ่มการผลิตแล้ว')}
+    };
+  });
+}
+
+/* ---------- input weights (admin only, free list) ---------- */
+function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><select data-wt aria-label="ถัง input"><option value="">ไม่ระบุถัง</option>${IN_TANKS.map(k=>`<option ${r.tank===k?'selected':''}>${k}</option>`).join('')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+function weightFields(o){
+  const rows=inputsOf(o).filter(r=>+r.kg>0);
+  return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum"></div></div>`;
+}
+function readWeights(){return[...document.querySelectorAll('#w-rows .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',tank:r.querySelector('[data-wt]').value,kg:parseFloat(r.querySelector('[data-wk]').value)||0})).filter(x=>x.kg>0)}
+function wSum(){const el=$('#w-sum');if(!el)return;const k=[...document.querySelectorAll('[data-wk]')].reduce((a,e)=>a+(parseFloat(e.value)||0),0);el.textContent=k?`น้ำหนัก input รวม ${fmt(k)} กก. (${tn(k)} ตัน)`:''}
+function weightForm(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  openModal(`<div><h2>น้ำหนัก input</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>${weightFields(o)}
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="w-save">บันทึกน้ำหนัก</button></div>`,()=>{
+    $('#sheet').addEventListener('input',wSum);wSum();
+    $('#w-save').onclick=async()=>{if(await upd(o,{inputs:readWeights()})){toast('บันทึกน้ำหนัก input แล้ว');orderDetail(id)}};
+  });
+}
+
+/* ---------- pause / resume ---------- */
+function pauseForm(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  openModal(`<div><h2>หยุดผลิตชั่วคราว</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
+  <div class="field"><label for="p-from">เวลาที่หยุด</label><input id="p-from" type="datetime-local" value="${nowLocal()}"></div>
+  <div class="field"><label for="p-why">เหตุผลที่หยุด</label><input id="p-why" list="dl-why" placeholder="เลือกหรือพิมพ์เหตุผล"></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">บันทึกการหยุด</button></div>`,()=>{
+    $('#p-save').onclick=async()=>{
+      const from=$('#p-from').value,why=$('#p-why').value.trim();
+      if(!from)return toast('ใส่เวลาที่หยุด');
+      if(!why)return toast('ใส่เหตุผลที่หยุด');
+      if(o.startAt&&new Date(from)<new Date(o.startAt))return toast('เวลาหยุดต้องไม่ก่อนเวลาเริ่มผลิต');
+      if(await upd(o,{status:'paused',pauses:[...(o.pauses||[]),{from,reason:why}]})){closeModal();toast('บันทึกการหยุดผลิตแล้ว')}
+    };
+  });
+}
+function resumeForm(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  const ps=o.pauses||[],p=ps[ps.length-1];if(!p||p.to){upd(o,{status:'running'});return}
+  openModal(`<div><h2>เริ่มผลิตต่อ</h2><div class="hint">หยุดตั้งแต่ ${dt(p.from)} · ${esc(p.reason)}</div></div>
+  <div class="field"><label for="u-to">เวลาที่เริ่มผลิตต่อ</label><input id="u-to" type="datetime-local" value="${nowLocal()}"></div>
+  <div class="hint" id="u-dur"></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="u-save">เริ่มผลิตต่อ</button></div>`,()=>{
+    const d=()=>{const v=$('#u-to').value;$('#u-dur').textContent=v?'เวลาสูญเสียจากการหยุดครั้งนี้ '+lossStr(mins(p.from,v)):''};
+    $('#u-to').oninput=d;d();
+    $('#u-save').onclick=async()=>{
+      const v=$('#u-to').value;
+      if(!v)return toast('ใส่เวลาที่เริ่มผลิตต่อ');
+      if(new Date(v)<new Date(p.from))return toast('เวลาต้องไม่ก่อนเวลาที่หยุด');
+      const np=ps.map((x,i)=>i===ps.length-1?{...x,to:v}:x);
+      if(await upd(o,{status:'running',pauses:np})){closeModal();toast('เริ่มผลิตต่อแล้ว')}
+    };
+  });
+}
+
+/* ---------- finish: time + byproducts ---------- */
+function resultForm(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  const cur={};(o.byproducts||[]).forEach(b=>cur[b.name]=b.kg);
+  openModal(`<div><h2>${o.status==='done'?'แก้ไขผลการผลิต':'บันทึกผลการผลิต'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
+  <div class="grid2">
+    <div class="field"><label for="r-start">เวลาเริ่มผลิต</label><input id="r-start" type="datetime-local" value="${esc(o.startAt||'')}"></div>
+    <div class="field"><label for="r-end">เวลาผลิตเสร็จ</label><input id="r-end" type="datetime-local" value="${esc(o.endAt||nowLocal())}"></div>
+  </div>
+  <div class="hint" id="r-dur"></div>
+  ${isAdmin()?weightFields(o):''}
+  <div class="field"><span class="lbl">ผลพลอยได้ (กก.) ใส่เฉพาะรายการที่ได้</span>
+    <div class="bpgrid">${BP.map((n,i)=>`<label for="bp${i}">${n}<input id="bp${i}" data-bp="${n}" type="number" min="0" step="any" inputmode="decimal" placeholder="กก." value="${cur[n]!=null?cur[n]:''}"></label>`).join('')}</div></div>
+  ${isAdmin()?'<div class="notice" id="r-calc" hidden></div>':''}
+  <div class="field"><label for="r-note">หมายเหตุ</label><textarea id="r-note">${esc(o.resultNote||'')}</textarea></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="r-save">บันทึกผลการผลิต</button></div>`,()=>{
+    const d=()=>{const a=$('#r-start').value,b=$('#r-end').value;if(!a||!b){$('#r-dur').textContent='';return}
+      const tmp={...o,startAt:a,endAt:b,status:'done'},l=lossMin(tmp),t=mins(a,b);
+      $('#r-dur').textContent=`ใช้เวลาทั้งหมด ${hm(t)} · เวลาสูญเสียจากการหยุด ${lossStr(l)} · เวลาผลิตจริง ${hm(Math.max(0,t-l))}`};
+    const calc=()=>{
+      d();wSum();const el=$('#r-calc');if(!el)return;
+      const a=$('#r-start').value,b=$('#r-end').value,w=[...document.querySelectorAll('[data-wk]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0),by=[...document.querySelectorAll('[data-bp]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0);
+      if(!w||!a||!b){el.hidden=true;return}
+      const net=Math.max(0,mins(a,b)-lossMin({...o,startAt:a,endAt:b,status:'done'}));
+      el.hidden=false;el.textContent=`ข้าวที่ผลิตได้ = ${fmt(w)} − ${fmt(by)} = ${fmt(w-by)} กก.${net>0?` · อัตราการผลิต ${fmt((w/1000)/(net/60))} ตัน/ชม.`:''}`;
+    };
+    $('#sheet').addEventListener('input',calc);calc();
+    $('#r-save').onclick=async()=>{
+      const a=$('#r-start').value,b=$('#r-end').value;
+      if(!a||!b)return toast('กรอกเวลาเริ่มและเวลาเสร็จ');
+      if(new Date(b)<new Date(a))return toast('เวลาเสร็จต้องไม่ก่อนเวลาเริ่ม');
+      const byproducts=[...document.querySelectorAll('[data-bp]')].map(i=>({name:i.dataset.bp,kg:parseFloat(i.value)||0})).filter(x=>x.kg>0);
+      const pauses=(o.pauses||[]).map(p=>p.to?p:{...p,to:b});
+      if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),...(isAdmin()?{inputs:readWeights()}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
+    };
+  });
+}
+
+/* ---------- rice type + formula ---------- */
+function fRow(x){return `<div class="line fr"><input list="dl-ing" placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+function typeForm(id){
+  const t=id?S.types.find(x=>x.id===id):null;
+  openModal(`<h2>${t?'แก้ไขชนิดข้าว':'เพิ่มชนิดข้าว'}</h2>
+  <div class="grid2">
+    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น ข้าวหอมมะลิผสม"></div>
+    <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น JM-7030"></div>
+  </div>
+  <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%)</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
+    <div class="actions"><button class="btn sm" type="button" data-act="add-ing">+ เพิ่มส่วนผสม</button><button class="btn sm" type="button" data-act="fill">เติมส่วนที่เหลือ</button></div></div>
+  <div class="meter"><div class="bar" id="t-bar"></div><div class="txt"><span id="t-msg"></span><b id="t-sum"></b></div></div>
+  <div class="field"><label for="t-note">หมายเหตุ</label><textarea id="t-note">${esc(t?t.note:'')}</textarea></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="t-save">บันทึก</button></div>`,()=>{
+    $('#t-lines').addEventListener('input',meter);meter();
+    $('#t-save').onclick=async()=>{
+      const name=$('#t-name').value.trim();if(!name)return toast('กรอกชื่อชนิดข้าว');
+      const code=$('#t-code').value.trim();if(!code)return toast('กรอกรหัสสูตร');
+      if(S.types.some(x=>x.id!==(t&&t.id)&&(x.code||'').toLowerCase()===code.toLowerCase()))return toast('รหัสสูตรนี้ถูกใช้แล้ว');
+      const rows=readFormula();
+      if(!rows.length||rows.some(r=>!r.name||!(r.pct>0)))return toast('ทุกส่วนผสมต้องมีชื่อและเปอร์เซ็นต์มากกว่า 0');
+      const sum=rows.reduce((a,r)=>a+r.pct,0);
+      if(Math.abs(sum-100)>0.005)return toast('ส่วนผสมรวมต้องเท่ากับ 100%');
+      const doc={...(t||{}),name,code,note:$('#t-note').value.trim(),formula:rows,createdAt:t?t.createdAt:Date.now(),updatedAt:Date.now()};delete doc.id;
+      if(await put('riceTypes',t?t.id:uid(),doc)){closeModal();toast('บันทึกชนิดข้าวแล้ว')}
+    };
+  });
+}
+function readFormula(){return[...document.querySelectorAll('#t-lines .line')].map(r=>{const i=r.querySelectorAll('input');return{name:i[0].value.trim(),code:i[1].value.trim(),pct:Math.round((parseFloat(i[2].value)||0)*100)/100,raw:i[2].value}}).filter(r=>r.name||r.code||r.raw!=='').map(({name,code,pct})=>({name,code,pct}))}
+function meter(){
+  const rows=readFormula(),sum=Math.round(rows.reduce((a,r)=>a+r.pct,0)*100)/100,diff=Math.round((100-sum)*100)/100;
+  $('#t-bar').innerHTML=rows.filter(r=>r.pct>0).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})"></span>`).join('');
+  $('#t-sum').textContent='รวม '+fmt(sum)+'%';$('#t-sum').className=diff===0?'ok':'bad';
+  $('#t-msg').textContent=diff===0?'ครบ 100% แล้ว':diff>0?'ยังขาดอีก '+fmt(diff)+'%':'เกินมา '+fmt(-diff)+'%';
+  $('#t-msg').className=diff===0?'ok':'bad';
+  $('#t-save').disabled=diff!==0;
+}
+function fillRest(){
+  const rows=[...document.querySelectorAll('#t-lines .line')];
+  const sum=readFormula().reduce((a,r)=>a+r.pct,0),rest=Math.round((100-sum)*100)/100;if(rest<=0)return;
+  let target=rows.find(r=>r.querySelectorAll('input')[2].value==='')||null;
+  if(!target){const last=rows[rows.length-1];const i=last.querySelectorAll('input')[2];i.value=Math.round(((parseFloat(i.value)||0)+rest)*100)/100;meter();return}
+  target.querySelectorAll('input')[2].value=rest;meter();
+}
+
+/* ---------- dashboard ---------- */
+function rangeOf(k,ref){
+  const d=new Date(ref);d.setHours(0,0,0,0);const y=d.getFullYear(),m=d.getMonth(),n=d.getDate();
+  if(k==='day')return[d,new Date(y,m,n+1)];
+  if(k==='week'){const a=new Date(y,m,n-((d.getDay()+6)%7));return[a,new Date(a.getFullYear(),a.getMonth(),a.getDate()+7)]}
+  if(k==='month')return[new Date(y,m,1),new Date(y,m+1,1)];
+  return[new Date(y,0,1),new Date(y+1,0,1)];
+}
+function labelOf(k,a,b){
+  if(k==='day')return a.toLocaleDateString('th-TH',{dateStyle:'full'});
+  if(k==='week'){const e=new Date(b-1);return`${a.getDate()} ${MON[a.getMonth()]} – ${e.getDate()} ${MON[e.getMonth()]} ${e.getFullYear()+543}`}
+  if(k==='month')return MONL[a.getMonth()]+' '+(a.getFullYear()+543);
+  return'ปี '+(a.getFullYear()+543);
+}
+function shiftRef(k,ref,n){const d=new Date(ref);if(k==='day')d.setDate(d.getDate()+n);else if(k==='week')d.setDate(d.getDate()+7*n);else if(k==='month')d.setMonth(d.getMonth()+n,1);else d.setFullYear(d.getFullYear()+n,0,1);return d.getTime()}
+function bucketsOf(k,a,b){
+  const out=[];
+  if(k==='week')for(let i=0;i<7;i++){const f=new Date(a.getFullYear(),a.getMonth(),a.getDate()+i);out.push({lb:DOW[f.getDay()]+' '+f.getDate(),f,t:new Date(f.getFullYear(),f.getMonth(),f.getDate()+1)})}
+  else if(k==='month'){const n=Math.round((b-a)/864e5);for(let i=0;i<n;i++){const f=new Date(a.getFullYear(),a.getMonth(),i+1);out.push({lb:(i===0||(i+1)%5===0)?String(i+1):'',f,t:new Date(a.getFullYear(),a.getMonth(),i+2)})}}
+  else if(k==='year')for(let i=0;i<12;i++)out.push({lb:MON[i],f:new Date(a.getFullYear(),i,1),t:new Date(a.getFullYear(),i+1,1)});
+  return out;
+}
+function ymd(d){const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function syncDashHead(a,b){
+  const D=S.dash;
+  document.querySelectorAll('#dseg .tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.k===D.kind));
+  $('#d-label').textContent=labelOf(D.kind,a,b);
+  if($('#d-date').value!==ymd(D.ref))$('#d-date').value=ymd(D.ref);
+  if(D.type&&!S.types.some(t=>t.id===D.type))D.type='';
+  const sel=$('#d-type'),opts='<option value="">ทุกชนิดข้าว</option>'+[...S.types].sort((x,y)=>x.name.localeCompare(y.name,'th')).map(t=>`<option value="${t.id}">${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('');
+  if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}
+  sel.value=D.type;$('#d-status').value=D.status;
+}
+function renderDash(){
+  const {kind,ref}=S.dash,[a,b]=rangeOf(kind,ref);syncDashHead(a,b);
+  const od=o=>new Date(o.startAt||o.createdAt||0);
+  const dq=S.dash.q.trim().toLowerCase();
+  const O=S.orders.filter(o=>{const d=od(o);return d>=a&&d<b&&(!S.dash.type||o.typeId===S.dash.type)&&(S.dash.status==='all'||st(o)===S.dash.status)&&(!dq||(o.no+' '+o.typeName+' '+codeOf(o)).toLowerCase().includes(dq))}).sort((x,y)=>od(x)-od(y));
+  const M=O.map(o=>({o,m:mx(o)}));
+  const W=M.filter(x=>x.m.done&&x.m.hasIn),D=M.filter(x=>x.m.done);
+  const sum=(arr,f)=>arr.reduce((t,x)=>t+f(x),0);
+  const inKg=sum(W,x=>x.m.inKg),outKg=sum(W,x=>x.m.outKg),byAll=sum(D,x=>x.m.byKg),netW=sum(W,x=>x.m.net),netAll=sum(D,x=>x.m.net),lossAll=sum(M,x=>x.m.loss);
+  const cnt={running:0,paused:0,done:0};O.forEach(o=>cnt[st(o)]++);
+  const pauseN=sum(O,o=>(o.pauses||[]).length);
+  const rate=netW>0?(inKg/1000)/(netW/60):null;
+  if(!O.length){$('#dash-body').innerHTML='<div class="empty">ไม่มีรายการผลิตที่ตรงกับช่วงเวลาและตัวกรองนี้</div>';return}
+  const kpi=`<div class="kpis">
+    <div><b>${O.length}</b><span>รายการผลิต</span><small>เสร็จ ${cnt.done} · กำลังผลิต ${cnt.running} · หยุด ${cnt.paused}</small></div>
+    <div><b>${tn(inKg)}</b><span>น้ำหนัก input (ตัน)</span><small>${W.length} จาก ${D.length} รายการที่เสร็จ</small></div>
+    <div><b>${tn(outKg)}</b><span>ข้าวที่ผลิตได้ (ตัน)</span><small>${inKg?'คิดเป็น '+fmt(outKg/inKg*100)+'% ของ input':'ยังไม่มีน้ำหนัก input'}</small></div>
+    <div><b>${tn(byAll)}</b><span>ผลพลอยได้ (ตัน)</span><small>${D.length} รายการที่เสร็จ</small></div>
+    <div><b>${rate!=null?fmt(rate):'-'}</b><span>กำลังผลิต (ตัน/ชม.)</span><small>input ÷ เวลาผลิตจริง</small></div>
+    <div><b>${fmt(netAll/60)}</b><span>เวลาผลิตจริง (ชม.)</span><small>เฉพาะรายการที่เสร็จ</small></div>
+    <div><b>${fmt(lossAll/60)}</b><span>เวลาสูญเสีย (ชม.)</span><small>หยุด ${pauseN} ครั้ง</small></div></div>`;
+  // chart
+  let chart='';
+  const bk=bucketsOf(kind,a,b);
+  if(bk.length){
+    bk.forEach(x=>{x.i=0;x.o=0;W.forEach(w=>{const d=od(w.o);if(d>=x.f&&d<x.t){x.i+=w.m.inKg;x.o+=w.m.outKg}})});
+    const mxv=Math.max(...bk.map(x=>Math.max(x.i,x.o)),1);
+    chart=`<div class="dsec"><h2>แนวโน้ม${kind==='year'?'รายเดือน':'รายวัน'} (ตัน)</h2>
+    <div class="legend"><span><i class="sw" style="background:var(--c2)"></i>น้ำหนัก input</span><span><i class="sw" style="background:var(--c0)"></i>ข้าวที่ผลิตได้</span></div>
+    <div class="card"><div class="tw"><div class="chart" style="min-width:${kind==='month'?640:0}px" role="img" aria-label="กราฟน้ำหนัก input และข้าวที่ผลิตได้">${bk.map(x=>`<div class="col" title="${esc(x.lb||'')} input ${tn(x.i)} ตัน · ได้ ${tn(x.o)} ตัน"><div class="bars"><i style="height:${x.i/mxv*100}%;background:var(--c2)"></i><i style="height:${Math.max(0,x.o)/mxv*100}%;background:var(--c0)"></i></div><span class="lb">${x.lb}</span></div>`).join('')}</div></div>
+    ${W.length?'':'<div class="hint">ยังไม่มีรายการที่ธุรการใส่น้ำหนัก input ในช่วงนี้</div>'}</div></div>`;
+  }
+  // by rice type
+  const G={};
+  M.forEach(x=>{const k=x.o.typeId||x.o.typeName;const g=G[k]||(G[k]={name:x.o.typeName,code:codeOf(x.o),n:0,d:0,inK:0,byK:0,outK:0,net:0});
+    g.n++;if(x.m.done)g.d++;if(x.m.done&&x.m.hasIn){g.inK+=x.m.inKg;g.byK+=x.m.byKg;g.outK+=x.m.outKg;g.net+=x.m.net}});
+  const gr=Object.values(G).sort((p,q)=>q.inK-p.inK||q.n-p.n);
+  const typeTbl=`<div class="dsec"><h2>แยกตามชนิดข้าว</h2><div class="card tw"><table class="tbl"><thead><tr><th>ชนิดข้าว</th><th>รายการ (เสร็จ)</th><th>input (ตัน)</th><th>ผลพลอยได้ (ตัน)</th><th>ข้าวที่ได้ (ตัน)</th><th>ตัน/ชม.</th></tr></thead><tbody>
+    ${gr.map(g=>`<tr><td>${esc(g.name)} ${g.code?`<span class="code">${esc(g.code)}</span>`:''}</td><td>${g.n} (${g.d})</td><td>${g.inK?tn(g.inK):'-'}</td><td>${g.inK?tn(g.byK):'-'}</td><td>${g.inK?tn(g.outK):'-'}</td><td>${g.net>0?fmt((g.inK/1000)/(g.net/60)):'-'}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>รวม</td><td>${O.length} (${cnt.done})</td><td>${tn(inKg)}</td><td>${tn(sum(W,x=>x.m.byKg))}</td><td>${tn(outKg)}</td><td>${rate!=null?fmt(rate):'-'}</td></tr></tfoot></table></div></div>`;
+  // byproducts
+  const bpk={};BP.forEach(n=>bpk[n]={all:0,w:0});
+  D.forEach(x=>(x.o.byproducts||[]).forEach(b=>{if(bpk[b.name]){bpk[b.name].all+=+b.kg||0;if(x.m.hasIn)bpk[b.name].w+=+b.kg||0}}));
+  const bpTbl=`<div class="dsec"><h2>ผลพลอยได้</h2><div class="card tw"><table class="tbl"><thead><tr><th>รายการ</th><th>น้ำหนัก (กก.)</th><th>% ของ input</th></tr></thead><tbody>
+    ${BP.map(n=>`<tr><td>${n}</td><td>${bpk[n].all?fmt(bpk[n].all):'-'}</td><td>${inKg&&bpk[n].w?fmt(bpk[n].w/inKg*100)+'%':'-'}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>รวม</td><td>${fmt(byAll)}</td><td>${inKg?fmt(sum(W,x=>x.m.byKg)/inKg*100)+'%':'-'}</td></tr></tfoot></table></div>
+    <div class="hint">% ของ input คิดเฉพาะรายการที่มีน้ำหนัก input</div></div>`;
+  // loss reasons
+  const R={};O.forEach(o=>{const end=st(o)==='done'?o.endAt:nowLocal();(o.pauses||[]).forEach(p=>{const k=(p.reason||'ไม่ระบุเหตุผล').trim();const r=R[k]||(R[k]={n:0,min:0});r.n++;r.min+=mins(p.from,p.to||end)})});
+  const rr=Object.entries(R).sort((p,q)=>q[1].min-p[1].min);
+  const lossTbl=`<div class="dsec"><h2>เวลาสูญเสียตามเหตุผล</h2><div class="card tw">${rr.length?`<table class="tbl"><thead><tr><th>เหตุผล</th><th>ครั้ง</th><th>เวลา (ชม.)</th><th>สัดส่วน</th></tr></thead><tbody>
+    ${rr.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${fmt(Math.round(v.min/60*100)/100)}</td><td>${lossAll?fmt(v.min/lossAll*100)+'%':'-'}</td></tr>`).join('')}</tbody><tfoot><tr><td>รวม</td><td>${pauseN}</td><td>${fmt(lossAll/60)}</td><td></td></tr></tfoot></table>`:'<div class="hint">ไม่มีการหยุดผลิตในช่วงนี้</div>'}</div></div>`;
+  // tanks
+  const OT={};OUT_TANKS.forEach(k=>OT[k]={n:0,kg:0});const IT={};IN_TANKS.forEach(k=>IT[k]={n:0,kg:0});
+  M.forEach(x=>{const ts=(x.o.outTanks||[]).filter(k=>OT[k]);ts.forEach(k=>{OT[k].n++;if(x.m.outKg!=null)OT[k].kg+=x.m.outKg/ts.length});
+    const used=new Set([...inTanksOf(x.o)]);used.forEach(k=>{if(IT[k]){IT[k].n++;IT[k].kg+=inputsOf(x.o).filter(r=>r.tank===k).reduce((a,r)=>a+(+r.kg||0),0)}})});
+  const tankTbl=`<div class="dsec"><h2>ถังเก็บและถัง input</h2><div class="dgrid"><div class="card tw"><table class="tbl"><thead><tr><th>ถังเก็บข้าวที่ผลิตได้</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${OUT_TANKS.map(k=>`<tr><td>${k}</td><td>${OT[k].n||'-'}</td><td>${OT[k].kg?tn(OT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card tw"><table class="tbl"><thead><tr><th>ถัง input</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${IN_TANKS.map(k=>`<tr><td>${k}</td><td>${IT[k].n||'-'}</td><td>${IT[k].kg?tn(IT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="hint">กรณีใช้ถังเก็บหลายถังในรายการเดียว ระบบแบ่งน้ำหนักเท่ากันทุกถัง</div></div>`;
+  // order list
+  const list=`<div class="dsec"><h2>รายการผลิตในช่วงนี้</h2><div class="card tw"><table class="tbl"><thead><tr><th>เลขที่ / ชนิดข้าว</th><th>สถานะ</th><th>เริ่ม</th><th>เสร็จ</th><th>เวลาผลิตจริง</th><th>input (ตัน)</th><th>ข้าวที่ได้ (ตัน)</th><th>ตัน/ชม.</th></tr></thead><tbody>
+    ${M.map(({o,m})=>`<tr data-act="open" data-id="${o.id}"><td>${esc(o.no)} · ${esc(o.typeName)}</td><td><span class="pill ${st(o)}">${LABEL[st(o)]}</span></td><td>${dts(o.startAt)}</td><td>${m.done?dts(o.endAt):'-'}</td><td>${m.done?hm(m.net):'-'}</td><td>${m.hasIn?tn(m.inKg):'-'}</td><td>${m.outKg!=null?tn(m.outKg):'-'}</td><td>${m.rate!=null?fmt(m.rate):'-'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  $('#dash-body').innerHTML=kpi+chart+typeTbl+`<div class="dgrid">${bpTbl}${lossTbl}</div>`+tankTbl+list;
+}
+
+/* ---------- production plans ---------- */
+function planState(p){if(p.status!=='started')return'open';const o=S.orders.find(x=>x.id===p.orderId);return o?st(o):'running'}
+function planRow(p){
+  const s0=planState(p),code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'';
+  return `<div class="orow" role="button" tabindex="0" data-act="plan-open" data-id="${p.id}">
+    <span class="pill ${s0}">${LABEL[s0]}</span>
+    <span class="om"><b>${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(p.no)}</span></span>
+    <span class="ot">${fmt(p.qty)} กก. · ผลิต ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}</span>
+    ${s0==='open'?`<button class="btn sm primary" data-act="start-plan" data-id="${p.id}">เริ่มการผลิต</button>`:'<span class="chev" aria-hidden="true">›</span>'}</div>`;
+}
+function renderPlans(){
+  $('#pnewbtn').hidden=!isAdmin();
+  const sel=$('#ptype'),opts='<option value="">ทุกชนิดข้าว</option>'+[...S.types].sort((a,b)=>a.name.localeCompare(b.name,'th')).map(t=>`<option value="${t.id}">${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('');
+  if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}
+  if(S.ptype&&!S.types.some(t=>t.id===S.ptype))S.ptype='';
+  sel.value=S.ptype;
+  const open=S.plans.filter(p=>planState(p)==='open');
+  $('#psummary').innerHTML=`<div><b>${open.length}</b><span>รอเริ่มผลิต (${fmt(open.reduce((a,p)=>a+(+p.qty||0),0))} กก.)</span></div><div><b>${S.plans.length-open.length}</b><span>เริ่มผลิตแล้ว</span></div><div><b>${S.plans.length}</b><span>แผนทั้งหมด</span></div>`;
+  const q=S.pq.trim().toLowerCase();
+  const rows=S.plans.filter(p=>(S.pf==='all'||(S.pf==='open')===(planState(p)==='open'))&&(!S.ptype||p.typeId===S.ptype)&&(!q||(p.no+' '+p.typeName+' '+(p.code||'')).toLowerCase().includes(q)));
+  rows.sort((a,b)=>{const ao=planState(a)==='open',bo=planState(b)==='open';if(ao!==bo)return ao?-1:1;return ao?(a.plannedDate||'9').localeCompare(b.plannedDate||'9')||(a.createdAt||0)-(b.createdAt||0):(b.createdAt||0)-(a.createdAt||0)});
+  if(!S.plans.length){
+    $('#plist').innerHTML=`<div class="empty"><div><b>ยังไม่มีแผนการผลิต</b><br>${isAdmin()?'ออกใบสั่งผลิตเพื่อให้พนักงานเริ่มการผลิตตามแผน':'รอธุรการออกใบสั่งผลิต'}</div>
+    ${isAdmin()?'<div class="actions"><button class="btn primary" data-act="new-plan">+ ออกใบสั่งผลิต</button><button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button></div>':''}</div>`;return;
+  }
+  $('#plist').innerHTML=rows.length?rows.map(planRow).join(''):'<div class="empty">ไม่พบรายการที่ตรงกับตัวกรอง</div>';
+}
+function planDetail(id){
+  const p=S.plans.find(x=>x.id===id);if(!p)return;
+  const s0=planState(p),code=p.code||'',o=p.orderId?S.orders.find(x=>x.id===p.orderId):null;
+  const ing=(p.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${fmt(p.qty*x.pct/100)} กก.</b></div>`).join('');
+  const acts=[];
+  if(s0==='open')acts.push(`<button class="btn primary" data-act="start-plan" data-id="${p.id}">เริ่มการผลิต</button>`);
+  if(o)acts.push(`<button class="btn" data-act="open" data-id="${o.id}">ดูรายการผลิต</button>`);
+  if(isAdmin())acts.push(`<button class="btn" data-act="edit-plan" data-id="${p.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-plan" data-id="${p.id}">ลบ</button>`);
+  openModal(`<div class="row"><div><div class="no">${esc(p.no)} <span class="pill ${s0}">${LABEL[s0]}</span></div>
+    <div class="name">${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div><button class="btn sm" data-act="close">ปิด</button></div>
+  <div class="meta"><span>จำนวน <b>${fmt(p.qty)} กก.</b></span><span>วันที่ผลิต <b>${p.plannedDate?dd(p.plannedDate):'ไม่ระบุ'}</b></span></div>
+  ${p.note?`<div class="hint">หมายเหตุ: ${esc(p.note)}</div>`:''}
+  ${o?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">เริ่มผลิตเมื่อ ${dt(o.startAt)} · ${LABEL[st(o)]}</div>`:''}
+  <div><h3 class="lbl" style="margin-bottom:6px">สูตรผสม (คำนวณจาก ${fmt(p.qty)} กก.)</h3>${bar(p.formula)}<div style="margin-top:6px">${ing}</div></div>
+  <div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`);
+}
+function planForm(id){
+  const p=id?S.plans.find(x=>x.id===id):null,locked=!!(p&&p.status==='started');
+  if(!S.types.length){toast('เพิ่มชนิดข้าวและสูตรก่อนออกใบสั่งผลิต');setTab('recipes');return}
+  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่และหมายเหตุ</div>':''}
+  <div class="grid2">
+    <div class="field"><label for="p-no">เลขที่ใบสั่ง</label><input id="p-no" value="${esc(p?p.no:orderNo())}" ${locked?'readonly':''}></div>
+    <div class="field"><label for="p-date">วันที่ผลิต (แผน)</label><input id="p-date" type="date" value="${esc(p?p.plannedDate:'')}"></div>
+  </div>
+  <div class="field"><label for="p-type">ชนิดข้าว</label><select id="p-type" ${locked?'disabled':''}>${S.types.map(t=>`<option value="${t.id}" ${p&&p.typeId===t.id?'selected':''}>${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('')}</select></div>
+  <div class="field"><label for="p-qty">จำนวนที่สั่งผลิต (กก.)</label><input id="p-qty" type="number" min="1" step="any" inputmode="decimal" value="${p?p.qty:''}" ${locked?'readonly':''} placeholder="เช่น 20000"></div>
+  <div id="p-prev"></div>
+  <div class="field"><label for="p-note">หมายเหตุ</label><textarea id="p-note">${esc(p?p.note:'')}</textarea></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
+    const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
+      $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
+    $('#p-type').oninput=prev;$('#p-qty').oninput=prev;prev();
+    $('#p-save').onclick=async()=>{
+      const t=S.types.find(x=>x.id===$('#p-type').value),qty=parseFloat($('#p-qty').value),no=$('#p-no').value.trim();
+      if(!no)return toast('กรอกเลขที่ใบสั่ง');
+      if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
+      const formula=p&&p.typeId===t.id?p.formula:t.formula;
+      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,note:$('#p-note').value.trim(),status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
+      if(await put('plans',p?p.id:uid(),doc)){closeModal();toast(p?'แก้ไขใบสั่งผลิตแล้ว':'ออกใบสั่งผลิตแล้ว')}
+    };
+  });
+}
+function startPlan(id){const p=S.plans.find(x=>x.id===id);if(!p||planState(p)!=='open'){toast('แผนนี้เริ่มผลิตแล้ว');return}orderForm(null,id)}
+function planPicker(){
+  const open=S.plans.filter(p=>planState(p)==='open').sort((a,b)=>(a.plannedDate||'9').localeCompare(b.plannedDate||'9'));
+  openModal(`<div class="row"><h2>เลือกแผนที่จะเริ่มผลิต</h2><button class="btn sm" data-act="close">ปิด</button></div>
+  ${open.length?`<div class="list">${open.map(p=>`<button class="orow" style="grid-template-columns:1fr auto" data-act="start-plan" data-id="${p.id}"><span class="om"><b>${esc(p.typeName)} ${p.code?`<span class="code">${esc(p.code)}</span>`:''}</b><span class="no">${esc(p.no)} · ${fmt(p.qty)} กก. · ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="empty">ยังไม่มีแผนที่รอเริ่มผลิต<br>ให้ธุรการออกใบสั่งผลิตที่หน้าแผนการผลิตก่อน</div>'}`);
+}
+
+/* ---------- confirm delete ---------- */
+function confirmDel(kind,id){
+  const x=(kind==='order'?S.orders:kind==='plan'?S.plans:S.types).find(v=>v.id===id);if(!x)return;
+  const noun={order:'รายการผลิต',plan:'แผนการผลิต',type:'ชนิดข้าว'}[kind],label=kind==='type'?x.name:x.no+' · '+x.typeName;
+  const used=kind==='type'?S.orders.filter(o=>o.typeId===id).length+S.plans.filter(o=>o.typeId===id).length:0;
+  const extra=kind==='type'&&used?`ชนิดข้าวนี้ถูกใช้ใน ${used} รายการ รายการเดิมจะยังเก็บสูตรไว้ตามเดิม`:kind==='plan'&&x.status==='started'?'แผนนี้เริ่มผลิตแล้ว รายการผลิตที่เกี่ยวข้องจะยังอยู่':kind==='order'&&x.planId&&S.plans.some(p=>p.id===x.planId)?'แผนการผลิตที่เชื่อมอยู่จะกลับเป็นรอเริ่มผลิต':'';
+  openModal(`<h2>ลบ${noun}</h2>
+  <p style="margin:0">ต้องการลบ <b>${esc(label)}</b> ใช่หรือไม่ การลบแล้วกู้คืนไม่ได้</p>
+  ${extra?`<p class="hint" style="margin:0">${extra}</p>`:''}
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn danger solid" id="d-ok">ยืนยันลบ</button></div>`,()=>{
+    $('#d-ok').onclick=async()=>{
+      if(await del(kind==='order'?'orders':kind==='plan'?'plans':'riceTypes',id)){
+        if(kind==='order'&&x.planId){const pl=S.plans.find(p=>p.id===x.planId);if(pl){const pd={...pl,status:'open'};delete pd.id;delete pd.orderId;await put('plans',pl.id,pd)}}
+        closeModal();toast('ลบแล้ว')}
+    };
+  });
+}
+
+/* ---------- sample data ---------- */
+async function seed(){
+  const a=uid(),b=uid(),c=uid(),now=Date.now(),day=864e5,hr=36e5;
+  const T=[[a,'ข้าวหอมมะลิผสม','JM-7030','ข้าวสารหอมมะลิผสมข้าวขาว',[['ข้าวหอมมะลิ 105',70,'RM-01'],['ข้าวขาว 5%',30,'RM-02']]],
+    [b,'ข้าวหอมปทุมธานี','PT-100','',[['ข้าวหอมปทุมธานี 1',100,'RM-03']]],
+    [c,'ข้าวถุงสูตรบ้าน','HM-532','สูตรขายถุง 5 กก.',[['ข้าวหอมมะลิ 105',50,'RM-01'],['ข้าวขาว 5%',30,'RM-02'],['ข้าวเก่า',20,'RM-04']]]];
+  for(const t of T)await put('riceTypes',t[0],{name:t[1],code:t[2],note:t[3],formula:t[4].map(f=>({name:f[0],code:f[2],pct:f[1]})),createdAt:now,updatedAt:now});
+  const f=id=>T.find(t=>t[0]===id)[4].map(x=>({name:x[0],code:x[2],pct:x[1]}));
+  const L=ms=>{const x=new Date(ms);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
+  const base=dOff=>{const d=new Date(now+dOff*day);d.setHours(8,0,0,0);return d.getTime()};
+  let seq=0;
+  const mk=async(n,id,qty,dOff,order,note)=>{
+    const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B026-'+n;
+    await put('plans',pid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,plannedDate:ymd(now+dOff*day),note:note||'',status:order?'started':'open',...(order?{orderId:oid}:{}),createdAt:now+(seq++)});
+    if(order)await put('orders',oid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,planId:pid,note:note||'',pauses:[],...order});
+  };
+  const done=(id,dOff,hours,pauses,w,by,tIn,tOut)=>{const s0=base(dOff);return{status:'done',startAt:L(s0),endAt:L(s0+hours*hr),createdAt:s0,
+    pauses:pauses.map(p=>({from:L(s0+p[0]*hr),to:L(s0+p[1]*hr),reason:p[2]})),
+    inputs:f(id).map((x,i)=>({name:x.name,tank:tIn[i]||'',kg:w[i]||0})).filter(x=>x.kg>0),inTanks:[...new Set(tIn.filter(Boolean))],outTanks:tOut,
+    byproducts:by.map(v=>({name:v[0],kg:v[1]})),resultNote:''}};
+  await mk('001',a,30000,-9,done(a,-9,7,[[3,3.5,'เครื่องจักรขัดข้อง']],[21000,9000],[['ปลายเบอร์ 1',1100],['ปลายเบอร์ 2',800],['ปลายเบอร์ 3',300],['ข้าวดีดเบอร์ 2',400],['รำ',2100]],['AA02','AA03'],['AB01']));
+  await mk('002',b,20000,-3,done(b,-3,5,[],[20000],[['ปลายเบอร์ 1',700],['ปลายเบอร์ 2',450],['ข้าวดีดเบอร์ 3',250],['รำ',1500]],['AA08'],['AB03']));
+  await mk('003',a,30000,-1,done(a,-1,7,[[2,2.5,'ไฟฟ้าดับ'],[4.5,5.25,'พักเบรก']],[21000,9000],[['ปลายเบอร์ 1',1050],['ปลายเบอร์ 2',820],['ปลายเบอร์ 4',260],['ข้าวดีดเบอร์ 2',380],['ข้าวดีดเบอร์ 3',200],['รำ',2050]],['AA02','AA03'],['AB01','AB02']));
+  await mk('004',c,15000,0,{status:'paused',startAt:L(now-3*hr),inputs:[],inTanks:['AA02','AA03','AA08'],outTanks:['AB04'],pauses:[{from:L(now-1*hr),reason:'รอวัตถุดิบ'}],createdAt:now-day/2},'บรรจุถุง 5 กก.');
+  await mk('005',b,20000,0,{status:'running',startAt:L(now-0.5*hr),inputs:[],inTanks:['A1A1'],outTanks:['A1A1'],pauses:[],createdAt:now});
+  await mk('006',a,25000,1,null,'ส่งลูกค้าประจำ');
+  await mk('007',c,18000,2,null,'บรรจุถุง 5 กก.');
+  toast('เพิ่มข้อมูลตัวอย่างแล้ว');
+}
+
+/* ---------- events ---------- */
+function setTab(t){if(t==='recipes'&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
+document.addEventListener('click',e=>{
+  const ch=e.target.closest('.chip');if(ch){if(ch.dataset.pfilter)S.pf=ch.dataset.pfilter;else S.filter=ch.dataset.filter;render();return}
+  if(e.target.id==='modal'){closeModal();return}
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const id=b.dataset.id;
+  const act=b.dataset.act;
+  if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','seed','new-plan','edit-plan','del-plan'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
+  if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
+  switch(act){
+    case 'open':orderDetail(id);break;
+    case 'plan-open':planDetail(id);break;
+    case 'new-plan':planForm();break;
+    case 'edit-plan':planForm(id);break;
+    case 'del-plan':confirmDel('plan',id);break;
+    case 'start-plan':startPlan(id);break;
+    case 'pick-plan':case 'new-order':planPicker();break;
+    case 'weight':weightForm(id);break;
+    case 'dkind':S.dash.kind=b.dataset.k;renderDash();break;
+    case 'dprev':S.dash.ref=shiftRef(S.dash.kind,S.dash.ref,-1);renderDash();break;
+    case 'dnext':S.dash.ref=shiftRef(S.dash.kind,S.dash.ref,1);renderDash();break;
+    case 'dtoday':S.dash.ref=Date.now();renderDash();break;
+    case 'dclear':S.dash.type='';S.dash.status='all';S.dash.q='';$('#d-q').value='';renderDash();break;
+    case 'add-w':$('#w-rows').insertAdjacentHTML('beforeend',wRow());break;
+    case 'login-staff':setRole('staff');break;
+    case 'login-admin':loginAdmin();break;
+    case 'logout':closeModal();setRole(null);break;
+    case 'pw':pwForm();break;
+    case 'tab':setTab(b.dataset.tab);break;
+    case 'new-order':orderForm();break;
+    case 'edit-order':orderForm(id);break;
+    case 'del-order':confirmDel('order',id);break;
+    case 'record':resultForm(id);break;
+    case 'pause':pauseForm(id);break;
+    case 'resume':resumeForm(id);break;
+    case 'del-pause':{const o=S.orders.find(x=>x.id===id),i=+b.dataset.i;const np=(o.pauses||[]).filter((_,k)=>k!==i);upd(o,{pauses:np,status:o.status==='paused'&&!np.some(p=>!p.to)?'running':o.status}).then(()=>setTimeout(()=>orderDetail(id),80));break}
+    case 'reopen':{const o=S.orders.find(x=>x.id===id);upd(o,{status:'running'},['endAt','byproducts','resultNote','outputKg']).then(ok=>{if(ok){closeModal();toast('ย้อนกลับเป็นกำลังผลิตแล้ว')}});break}
+    case 'new-type':typeForm();break;
+    case 'edit-type':typeForm(id);break;
+    case 'del-type':confirmDel('type',id);break;
+    case 'seed':seed();break;
+    case 'close':closeModal();break;
+    case 'add-ing':$('#t-lines').insertAdjacentHTML('beforeend',fRow());break;
+    case 'fill':fillRest();break;
+    case 'rm-line':{const l=b.closest('.line');l.remove();if($('#t-lines'))meter();$('#sheet').dispatchEvent(new Event('input'));break}
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
+$('#q').addEventListener('input',e=>{S.q=e.target.value;renderOrders()});
+$('#ptype').addEventListener('change',e=>{S.ptype=e.target.value;renderPlans()});
+$('#pq').addEventListener('input',e=>{S.pq=e.target.value;renderPlans()});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('div.orow[data-act]'))e.target.click()});
+$('#ftype').addEventListener('change',e=>{S.typeFilter=e.target.value;renderOrders()});
+$('#d-date').addEventListener('change',e=>{if(e.target.value){S.dash.ref=new Date(e.target.value+'T12:00').getTime();renderDash()}});
+$('#d-type').addEventListener('change',e=>{S.dash.type=e.target.value;renderDash()});
+$('#d-status').addEventListener('change',e=>{S.dash.status=e.target.value;renderDash()});
+$('#d-q').addEventListener('input',e=>{S.dash.q=e.target.value;renderDash()});
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((h==='plans'||h==='orders'||h==='recipes'||h==='dash')&&h!==S.tab){S.tab=h;render()}});
+{const h=location.hash.slice(1);if(h==='plans'||h==='orders'||h==='recipes'||h==='dash')S.tab=h}
+setInterval(()=>{if(S.role&&$('#modal').hidden){if(S.tab==='orders'){renderSummary();renderOrders()}else if(S.tab==='plans')renderPlans();else if(S.tab==='dash')renderDash()}},60000);
+init();
+</script>
+
+</body></html>
