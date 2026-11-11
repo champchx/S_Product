@@ -87,6 +87,12 @@ textarea{resize:vertical;min-height:60px}
 .pill.running{background:var(--accent-soft);color:var(--accent)}
 .pill.paused{background:var(--warn-soft);color:var(--warn)}
 .pill.done{background:var(--surface2);color:var(--muted)}
+.line.bpl{grid-template-columns:minmax(0,1fr) 120px 76px}
+.bpr{padding:6px 0;border-bottom:1px dashed var(--line)}
+.bpr:last-child{border-bottom:0}
+.jb{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}
+.jb label{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+.jb .hint{grid-column:1/-1}
 .bpgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
 .bpgrid label{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
 @media (max-width:480px){.bpgrid{grid-template-columns:1fr}}
@@ -185,7 +191,7 @@ div.orow{cursor:pointer}
 <body>
 <div class="wrap" id="app" hidden>
   <header>
-    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM DEMO By Champ</small></div>
+    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>เริ่มผลิต · หยุดชั่วคราว · ผลพลอยได้ · สูตรผสม</small></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
@@ -285,6 +291,9 @@ const lossStr=m=>m?`${hm(m)} (${fmt(Math.round(m/60*100)/100)} ชม.)`:'0 ช�
 function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
 function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
 const isAdmin=()=>S.role==='admin';
+const JUMBO_KG=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) และน้ำหนักหักต่อใบ (กก.) เศษนับเป็น 1 ใบ
+const jumboBags=(n,r)=>n+(r>0?1:0);
+const jumboNet=(n,r)=>JUMBO_KG*n+r-JUMBO_TARE*jumboBags(n,r);
 const IN_TANKS=['AA02','AA03','AA08','A1A1'];
 const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -303,7 +312,7 @@ const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',h
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
 const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
-const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
+const API_URL='วางลิงก์ Web App ของ Google Apps Script ที่นี่';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
 const LS='rice-production-v1';
@@ -496,7 +505,7 @@ function orderDetail(id){
     <div class="detail">
       <div><h3>การหยุดผลิต (${pauses.length} ครั้ง)</h3>${pl||'<span class="hint">ยังไม่มีการหยุด</span>'}</div>
       <div><h3>สูตรผสม (คำนวณจาก ${fmt(o.qty)} กก.)</h3>${ing}</div>
-      ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
+      ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.${b.jumbo?` <span class="hint">(${b.jumbo} จัมโบ้${b.rem?` + เศษ ${fmt(b.rem)}`:''})</span>`:''}</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
     </div>
     ${acts.length?`<div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`:''}`);
 }
@@ -626,9 +635,21 @@ function resumeForm(id){
 }
 
 /* ---------- finish: time + byproducts ---------- */
+function bpRowHtml(n,i,cur){
+  const c=cur[n]||{},has=c.jumbo>0||c.rem>0;
+  return `<div class="bpr"><div class="line bpl"><span>${n}</span><input id="bp${i}" data-bp="${n}" type="number" min="0" step="any" inputmode="decimal" placeholder="กก." aria-label="${n} (กก.)" value="${c.kg!=null?c.kg:''}" ${has?'readonly':''}><button class="btn sm" type="button" data-act="jumbo">จัมโบ้</button></div>
+  <div class="jb" ${has?'':'hidden'}><label>จำนวนจัมโบ้ (ใบ)<input data-jn type="number" min="0" step="1" inputmode="numeric" value="${c.jumbo||''}"></label><label>เศษ (กก.)<input data-jr type="number" min="0" step="any" inputmode="decimal" value="${c.rem||''}"></label><div class="hint" data-jc></div></div></div>`;
+}
+function syncJumbo(){
+  document.querySelectorAll('.bpr').forEach(r=>{
+    const n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0,kg=r.querySelector('[data-bp]'),h=r.querySelector('[data-jc]');
+    if(n>0||m>0){const net=jumboNet(n,m);kg.value=net;kg.readOnly=true;h.textContent=`(${JUMBO_KG} × ${n}) + ${fmt(m)} − (${JUMBO_TARE} × ${jumboBags(n,m)} ใบ) = ${fmt(net)} กก.`}
+    else{kg.readOnly=false;h.textContent=''}
+  });
+}
 function resultForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
-  const cur={};(o.byproducts||[]).forEach(b=>cur[b.name]=b.kg);
+  const cur={};(o.byproducts||[]).forEach(b=>cur[b.name]=b);
   openModal(`<div><h2>${o.status==='done'?'แก้ไขผลการผลิต':'บันทึกผลการผลิต'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
   <div class="grid2">
     <div class="field"><label for="r-start">เวลาเริ่มผลิต</label><input id="r-start" type="datetime-local" value="${esc(o.startAt||'')}"></div>
@@ -636,8 +657,9 @@ function resultForm(id){
   </div>
   <div class="hint" id="r-dur"></div>
   ${isAdmin()?weightFields(o):''}
-  <div class="field"><span class="lbl">ผลพลอยได้ (กก.) ใส่เฉพาะรายการที่ได้</span>
-    <div class="bpgrid">${BP.map((n,i)=>`<label for="bp${i}">${n}<input id="bp${i}" data-bp="${n}" type="number" min="0" step="any" inputmode="decimal" placeholder="กก." value="${cur[n]!=null?cur[n]:''}"></label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ผลพลอยได้ ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>
+    <div>${BP.map((n,i)=>bpRowHtml(n,i,cur)).join('')}</div>
+    <div class="hint">สูตรจัมโบ้: (${JUMBO_KG} × จำนวนจัมโบ้) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
   ${isAdmin()?'<div class="notice" id="r-calc" hidden></div>':''}
   <div class="field"><label for="r-note">หมายเหตุ</label><textarea id="r-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="r-save">บันทึกผลการผลิต</button></div>`,()=>{
@@ -645,7 +667,7 @@ function resultForm(id){
       const tmp={...o,startAt:a,endAt:b,status:'done'},l=lossMin(tmp),t=mins(a,b);
       $('#r-dur').textContent=`ใช้เวลาทั้งหมด ${hm(t)} · เวลาสูญเสียจากการหยุด ${lossStr(l)} · เวลาผลิตจริง ${hm(Math.max(0,t-l))}`};
     const calc=()=>{
-      d();wSum();const el=$('#r-calc');if(!el)return;
+      syncJumbo();d();wSum();const el=$('#r-calc');if(!el)return;
       const a=$('#r-start').value,b=$('#r-end').value,w=[...document.querySelectorAll('[data-wk]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0),by=[...document.querySelectorAll('[data-bp]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0);
       if(!w||!a||!b){el.hidden=true;return}
       const net=Math.max(0,mins(a,b)-lossMin({...o,startAt:a,endAt:b,status:'done'}));
@@ -656,7 +678,8 @@ function resultForm(id){
       const a=$('#r-start').value,b=$('#r-end').value;
       if(!a||!b)return toast('กรอกเวลาเริ่มและเวลาเสร็จ');
       if(new Date(b)<new Date(a))return toast('เวลาเสร็จต้องไม่ก่อนเวลาเริ่ม');
-      const byproducts=[...document.querySelectorAll('[data-bp]')].map(i=>({name:i.dataset.bp,kg:parseFloat(i.value)||0})).filter(x=>x.kg>0);
+      syncJumbo();
+      const byproducts=[...document.querySelectorAll('.bpr')].map(r=>{const bp=r.querySelector('[data-bp]'),n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0;return{name:bp.dataset.bp,kg:parseFloat(bp.value)||0,...(n>0?{jumbo:n}:{}),...(m>0?{rem:m}:{})}}).filter(x=>x.kg>0);
       const pauses=(o.pauses||[]).map(p=>p.to?p:{...p,to:b});
       if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),...(isAdmin()?{inputs:readWeights()}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
     };
@@ -965,6 +988,7 @@ document.addEventListener('click',e=>{
   if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','seed','new-plan','edit-plan','del-plan','plan-up','plan-down'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
   if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
   switch(act){
+    case 'jumbo':{const jb=b.closest('.bpr').querySelector('.jb');jb.hidden=!jb.hidden;if(!jb.hidden)jb.querySelector('input').focus();break}
     case 'open':orderDetail(id);break;
     case 'plan-open':planDetail(id);break;
     case 'plan-up':movePlan(id,-1);break;
