@@ -1,6 +1,15 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ระบบจัดการผลิตข้าว</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600&display=swap">
 <style>
 /* Layout: ศูนย์ควบคุมแบบเรียบ — แถบหัว + แท็บสองหน้า (ใบสั่งผลิต / ชนิดข้าวและสูตร), รายการเป็นแถวกว้างเต็มคอลัมน์เดียว, ฟอร์มเปิดเป็นแผ่นซ้อน */
@@ -163,10 +172,11 @@ div.orow{cursor:pointer}
 @media (max-width:560px){.orow>.btn,.orow>.chev{grid-column:3;grid-row:1}}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
 </style>
-
+</head>
+<body>
 <div class="wrap" id="app" hidden>
   <header>
-    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM สุพรรณบุรี DEMO</small></div>
+    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM สุพรรณบุรี DEMO by Champ</small></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
@@ -284,45 +294,59 @@ const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',h
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
 const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
-let db=null;
+const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
+const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
+let pending=0;
 const LS='rice-production-v1';
 
-/* ---------- storage: shared db when available, otherwise this browser ---------- */
+/* ---------- storage: Google Sheets (via Apps Script) ---------- */
 function lsLoad(){try{const j=JSON.parse(localStorage.getItem(LS)||'{}');S.types=j.types||[];S.orders=j.orders||[];S.plans=j.plans||[]}catch(e){}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify({types:S.types,orders:S.orders,plans:S.plans}))}catch(e){}}
 const KEY={riceTypes:'types',orders:'orders',plans:'plans'};
+function localPut(coll,id,data){const arr=S[KEY[coll]];const rec={...data,id};const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=rec;else arr.push(rec)}
+async function api(body){
+  const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+  const j=await r.json();if(!j.ok)throw new Error(j.error||'api error');return j;
+}
+async function pull(){
+  const r=await fetch(API_URL+(API_URL.includes('?')?'&':'?')+'t='+Date.now());
+  const j=await r.json();if(!j.ok)throw new Error(j.error||'api error');
+  if(pending>0)return;
+  S.types=j.riceTypes||[];S.orders=j.orders||[];S.plans=j.plans||[];
+  const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
+  S.loaded=true;notice('');render();
+}
 async function put(coll,id,data){
   try{
-    if(db){await db.collection(coll).doc(id).set(data)}
-    else{const arr=S[KEY[coll]];const rec={...data,id};const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=rec;else arr.push(rec);lsSave();render()}
+    if(SHEET){localPut(coll,id,data);render();pending++;try{await api({action:'set',coll,id,data})}finally{pending--}}
+    else{localPut(coll,id,data);lsSave();render()}
     return true;
-  }catch(e){toast('บันทึกไม่สำเร็จ'+(e&&e.code==='invalid_argument'?' (ไม่มีสิทธิ์แก้ไขข้อมูล)':''));return false}
+  }catch(e){toast('บันทึกไม่สำเร็จ กรุณาลองใหม่');if(SHEET)pull().catch(()=>{});return false}
 }
 async function del(coll,id){
   try{
-    if(db){await db.collection(coll).doc(id).delete()}
-    else{S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);lsSave();render()}
+    S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);render();
+    if(SHEET){pending++;try{await api({action:'delete',coll,id})}finally{pending--}}else lsSave();
     return true;
-  }catch(e){toast('ลบไม่สำเร็จ');return false}
-}
-function listen(coll){
-  db.collection(coll).onSnapshot(snap=>{
-    S[KEY[coll]]=snap.docs.map(d=>({...d.data(),id:d.id}));
-    render();
-  },()=>{notice('เชื่อมต่อฐานข้อมูลไม่ได้ในขณะนี้')});
+  }catch(e){toast('ลบไม่สำเร็จ กรุณาลองใหม่');if(SHEET)pull().catch(()=>{});return false}
 }
 async function saveAdminHash(h){
   S.adminHash=h;
-  if(db){await db.doc('settings/admin').set({hash:h})}else{try{localStorage.setItem(LS+'-admin',h)}catch(e){}}
+  if(SHEET){await api({action:'set',coll:'settings',id:'admin',data:{hash:h}})}
+  else{try{localStorage.setItem(LS+'-admin',h)}catch(e){}}
 }
 async function init(){
   try{S.role=sessionStorage.getItem('rice-role')||null}catch(e){}
+  if(SHEET){
+    render();notice('กำลังโหลดข้อมูลจาก Google Sheets…');
+    try{await pull()}catch(e){notice('เชื่อมต่อ Google Sheets ไม่ได้ กรุณาตรวจสอบลิงก์ API_URL และการตั้งค่าแชร์ของ Web App')}
+    setInterval(()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})},30000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
+    return;
+  }
   try{S.adminHash=localStorage.getItem(LS+'-admin')||null}catch(e){}
   lsLoad();render();
-  let ok=null;
-  try{if(window.claude&&claude.use){ok=await Promise.race([claude.use('db'),new Promise(r=>setTimeout(()=>r(null),6000))])}}catch(e){}
-  if(ok){db=ok;S.types=[];S.orders=[];S.plans=[];S.adminHash=null;listen('riceTypes');listen('orders');listen('plans');db.doc('settings/admin').onSnapshot(d=>{S.adminHash=d.exists?d.data().hash:null},()=>{})}
-  else{notice('ข้อมูลเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น (ยังไม่ได้เชื่อมฐานข้อมูลที่ใช้ร่วมกัน)')}
+  notice('ยังไม่ได้ตั้งค่า API_URL ข้อมูลจะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น');
 }
 
 /* ---------- helpers ---------- */
@@ -348,6 +372,7 @@ function setRole(r){S.role=r;try{r?sessionStorage.setItem('rice-role',r):session
   if(r){$('#login').hidden=true;$('#login').innerHTML=''}render()}
 async function loginAdmin(){
   const v=$('#l-pw').value;if(!v)return toast('ใส่รหัสผ่านธุรการ');
+  if(SHEET&&!S.loaded){try{await pull()}catch(e){return toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้')}}
   const h=await sha(v),want=S.adminHash||await sha('1234');
   if(h!==want){toast('รหัสผ่านไม่ถูกต้อง');$('#l-pw').value='';return}
   setRole('admin');
@@ -930,5 +955,5 @@ addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((h==='plans
 setInterval(()=>{if(S.role&&$('#modal').hidden){if(S.tab==='orders'){renderSummary();renderOrders()}else if(S.tab==='plans')renderPlans();else if(S.tab==='dash')renderDash()}},60000);
 init();
 </script>
-
-</body></html>
+</body>
+</html>
