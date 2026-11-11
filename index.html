@@ -170,13 +170,22 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .orow>.btn{justify-self:end}
 div.orow{cursor:pointer}
 @media (max-width:560px){.orow>.btn,.orow>.chev{grid-column:3;grid-row:1}}
+.orow.prow{grid-template-columns:34px auto 1fr auto auto}
+.seq{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--surface2);color:var(--muted);font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
+.seq.next{background:var(--accent);color:var(--accent-fg)}
+.pa{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+@media (max-width:560px){
+  .orow.prow{grid-template-columns:34px 1fr auto}
+  .prow>.seq{grid-column:1;grid-row:1}.prow>.om{grid-column:2;grid-row:1}.prow>.pill{grid-column:3;grid-row:1}
+  .prow>.ot{grid-column:2/-1;grid-row:2;text-align:left}.prow>.pa{grid-column:1/-1;grid-row:3;justify-self:end}
+}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
 </style>
 </head>
 <body>
 <div class="wrap" id="app" hidden>
   <header>
-    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM สุพรรณบุรี DEMO by Champ</small></div>
+    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>เริ่มผลิต · หยุดชั่วคราว · ผลพลอยได้ · สูตรผสม</small></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
@@ -294,41 +303,64 @@ const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',h
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
 const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
-const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
+const API_URL='วางลิงก์ Web App ของ Google Apps Script ที่นี่';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
-let pending=0;
+let pending=0,wv=0;
 const LS='rice-production-v1';
 
 /* ---------- storage: Google Sheets (via Apps Script) ---------- */
 function lsLoad(){try{const j=JSON.parse(localStorage.getItem(LS)||'{}');S.types=j.types||[];S.orders=j.orders||[];S.plans=j.plans||[]}catch(e){}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify({types:S.types,orders:S.orders,plans:S.plans}))}catch(e){}}
 const KEY={riceTypes:'types',orders:'orders',plans:'plans'};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function localPut(coll,id,data){const arr=S[KEY[coll]];const rec={...data,id};const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=rec;else arr.push(rec)}
+function safeRender(){try{render()}catch(e){console.error(e)}}
+function fail(msg,e){console.error(e);toast(msg+(e&&e.message?': '+String(e.message).slice(0,140):''),7000)}
 async function api(body){
-  const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
-  const j=await r.json();if(!j.ok)throw new Error(j.error||'api error');return j;
+  let last;
+  for(let k=0;k<2;k++){
+    try{
+      const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+      const t=await r.text();let j;
+      try{j=JSON.parse(t)}catch(e){throw new Error('ลิงก์ Web App ตอบกลับไม่ถูกต้อง (ตรวจว่าตั้งค่า Who has access เป็น Anyone และ Deploy เวอร์ชันล่าสุดแล้ว)')}
+      if(!j.ok)throw new Error(j.error||'api error');
+      return j;
+    }catch(e){last=e;if(k===0)await sleep(800)}
+  }
+  throw last;
 }
 async function pull(){
+  const v0=wv;
   const r=await fetch(API_URL+(API_URL.includes('?')?'&':'?')+'t='+Date.now());
   const j=await r.json();if(!j.ok)throw new Error(j.error||'api error');
-  if(pending>0)return;
+  if(pending>0||wv!==v0)return; // มีการบันทึกระหว่างโหลด ข้อมูลที่ได้มาอาจเก่ากว่า จึงไม่นำมาทับ
   S.types=j.riceTypes||[];S.orders=j.orders||[];S.plans=j.plans||[];
   const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
-  S.loaded=true;notice('');render();
+  S.loaded=true;notice('');safeRender();
 }
-async function put(coll,id,data){
+async function putMany(ops){
   try{
-    if(SHEET){localPut(coll,id,data);render();pending++;try{await api({action:'set',coll,id,data})}finally{pending--}}
-    else{localPut(coll,id,data);lsSave();render()}
+    ops.forEach(([c,i,d])=>localPut(c,i,d));wv++;safeRender();
+    if(!SHEET){lsSave();return true}
+    pending++;
+    try{
+      try{if(ops.length===1){const [coll,id,data]=ops[0];await api({action:'set',coll,id,data})}else await api({action:'batch',ops:ops.map(([coll,id,data])=>({action:'set',coll,id,data}))})}
+      catch(e){
+        // Code.gs เวอร์ชันเก่ายังไม่รองรับ batch ให้บันทึกทีละรายการแทน
+        if(ops.length>1&&/bad collection|bad action|missing id/.test(e.message)){for(const [coll,id,data] of ops)await api({action:'set',coll,id,data})}
+        else throw e;
+      }
+    }finally{pending--;wv++}
     return true;
-  }catch(e){toast('บันทึกไม่สำเร็จ กรุณาลองใหม่');if(SHEET)pull().catch(()=>{});return false}
+  }catch(e){fail('บันทึกไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
+const put=(coll,id,data)=>putMany([[coll,id,data]]);
 async function del(coll,id){
   try{
-    S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);render();
-    if(SHEET){pending++;try{await api({action:'delete',coll,id})}finally{pending--}}else lsSave();
+    S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);wv++;safeRender();
+    if(SHEET){pending++;try{await api({action:'delete',coll,id})}finally{pending--;wv++}}else lsSave();
     return true;
-  }catch(e){toast('ลบไม่สำเร็จ กรุณาลองใหม่');if(SHEET)pull().catch(()=>{});return false}
+  }catch(e){fail('ลบไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
 async function saveAdminHash(h){
   S.adminHash=h;
@@ -350,7 +382,7 @@ async function init(){
 }
 
 /* ---------- helpers ---------- */
-function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
+function toast(m,ms){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,ms||2800)}
 function notice(m){const n=$('#notice');n.textContent=m;n.hidden=!m}
 function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})" title="${esc(x.name)} ${fmt(x.pct)}%"></span>`).join('')+'</div>'}
 function orderNo(){const p='SP-B026-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
@@ -496,8 +528,9 @@ function renderTypes(){
 function orderForm(id,planId){
   const o=id?S.orders.find(x=>x.id===id):null;
   const pl=planId?S.plans.find(x=>x.id===planId):null,src=o||pl;
+  const qi=pl?planQueue().findIndex(x=>x.id===pl.id)+1:0;
   if(!S.types.length){if(isAdmin()){toast('เพิ่มชนิดข้าวและสูตรก่อนเริ่มการผลิต');setTab('recipes')}else toast('ยังไม่มีชนิดข้าว กรุณาให้ธุรการเพิ่มสูตรก่อน');return}
-  openModal(`<h2>${o?'แก้ไขรายการผลิต':'เริ่มการผลิต'}</h2>${pl?'<div class="hint">จากแผนการผลิต · ชนิดข้าวและจำนวนตามที่ธุรการสั่ง</div>':''}
+  openModal(`<h2>${o?'แก้ไขรายการผลิต':'เริ่มการผลิต'}</h2>${pl?'<div class="hint">จากแผนการผลิต · ชนิดข้าวและจำนวนตามที่ธุรการสั่ง</div>':''}${qi>1?`<div class="notice">แผนนี้อยู่ลำดับที่ ${qi} ยังมีแผนลำดับก่อนหน้าที่ยังไม่เริ่มผลิต</div>`:''}
   <div class="grid2">
     <div class="field"><label for="f-no">เลขที่ใบสั่ง</label><input id="f-no" value="${esc(src?src.no:orderNo())}" ${pl?'readonly':''}></div>
     <div class="field"><label for="f-start">เวลาเริ่มผลิต</label><input id="f-start" type="datetime-local" value="${esc(o&&o.startAt?o.startAt:nowLocal())}"></div>
@@ -528,8 +561,9 @@ function orderForm(id,planId){
       const outTanks=[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out);
       const doc={...(o||{}),...(pl?{planId:pl.id}:{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,inputs,inTanks,outTanks,qty,startAt,due:$('#f-due').value,note:$('#f-note').value.trim(),status:o?o.status:'running',pauses:o?(o.pauses||[]):[],createdAt:o?o.createdAt:Date.now()};
       delete doc.id;
-      const oid=o?o.id:uid();
-      if(await put('orders',oid,doc)){if(pl){const pd={...pl,status:'started',orderId:oid};delete pd.id;await put('plans',pl.id,pd)}closeModal();toast(o?'แก้ไขแล้ว':'เริ่มการผลิตแล้ว')}
+      const oid=o?o.id:uid(),ops=[['orders',oid,doc]];
+      if(pl){const pd={...pl,status:'started',orderId:oid};delete pd.id;ops.push(['plans',pl.id,pd])}
+      if(await putMany(ops)){closeModal();toast(o?'แก้ไขแล้ว':'เริ่มการผลิตแล้ว')}
     };
   });
 }
@@ -770,13 +804,22 @@ function renderDash(){
 
 /* ---------- production plans ---------- */
 function planState(p){if(p.status!=='started')return'open';const o=S.orders.find(x=>x.id===p.orderId);return o?st(o):'running'}
-function planRow(p){
-  const s0=planState(p),code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'';
-  return `<div class="orow" role="button" tabindex="0" data-act="plan-open" data-id="${p.id}">
+function planQueue(){return S.plans.filter(p=>planState(p)==='open').sort((a,b)=>((a.seq==null?1e9:a.seq)-(b.seq==null?1e9:b.seq))||(a.plannedDate||'9').localeCompare(b.plannedDate||'9')||(a.createdAt||0)-(b.createdAt||0))}
+function seqOps(list){const ops=[];list.forEach((p,i)=>{if(p.seq!==i+1){const d={...p,seq:i+1};delete d.id;ops.push(['plans',p.id,d])}});return ops}
+async function movePlan(id,dir){
+  const q=planQueue(),i=q.findIndex(x=>x.id===id),j=i+dir;
+  if(i<0||j<0||j>=q.length)return;
+  [q[i],q[j]]=[q[j],q[i]];
+  await putMany(seqOps(q));
+}
+function planRow(p,qi,qn){
+  const s0=planState(p),code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'',open=s0==='open';
+  return `<div class="orow prow" role="button" tabindex="0" data-act="plan-open" data-id="${p.id}">
+    <span class="seq ${qi===1?'next':''}" ${open?`title="ลำดับการผลิต"`:''}>${open?qi:'–'}</span>
     <span class="pill ${s0}">${LABEL[s0]}</span>
     <span class="om"><b>${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(p.no)}</span></span>
     <span class="ot">${fmt(p.qty)} กก. · ผลิต ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}</span>
-    ${s0==='open'?`<button class="btn sm primary" data-act="start-plan" data-id="${p.id}">เริ่มการผลิต</button>`:'<span class="chev" aria-hidden="true">›</span>'}</div>`;
+    <span class="pa">${open&&isAdmin()?`<button class="btn sm" data-act="plan-up" data-id="${p.id}" aria-label="เลื่อนขึ้น" ${qi===1?'disabled':''}>▲</button><button class="btn sm" data-act="plan-down" data-id="${p.id}" aria-label="เลื่อนลง" ${qi===qn?'disabled':''}>▼</button>`:''}${open?`<button class="btn sm primary" data-act="start-plan" data-id="${p.id}">เริ่มการผลิต</button>`:'<span class="chev" aria-hidden="true">›</span>'}</span></div>`;
 }
 function renderPlans(){
   $('#pnewbtn').hidden=!isAdmin();
@@ -784,20 +827,21 @@ function renderPlans(){
   if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}
   if(S.ptype&&!S.types.some(t=>t.id===S.ptype))S.ptype='';
   sel.value=S.ptype;
-  const open=S.plans.filter(p=>planState(p)==='open');
-  $('#psummary').innerHTML=`<div><b>${open.length}</b><span>รอเริ่มผลิต (${fmt(open.reduce((a,p)=>a+(+p.qty||0),0))} กก.)</span></div><div><b>${S.plans.length-open.length}</b><span>เริ่มผลิตแล้ว</span></div><div><b>${S.plans.length}</b><span>แผนทั้งหมด</span></div>`;
+  const queue=planQueue(),qn=queue.length,qidx={};queue.forEach((p,i)=>qidx[p.id]=i+1);
+  $('#psummary').innerHTML=`<div><b>${qn}</b><span>รอเริ่มผลิต (${fmt(queue.reduce((a,p)=>a+(+p.qty||0),0))} กก.)</span></div><div><b>${S.plans.length-qn}</b><span>เริ่มผลิตแล้ว</span></div><div><b>${S.plans.length}</b><span>แผนทั้งหมด</span></div>`;
   const q=S.pq.trim().toLowerCase();
-  const rows=S.plans.filter(p=>(S.pf==='all'||(S.pf==='open')===(planState(p)==='open'))&&(!S.ptype||p.typeId===S.ptype)&&(!q||(p.no+' '+p.typeName+' '+(p.code||'')).toLowerCase().includes(q)));
-  rows.sort((a,b)=>{const ao=planState(a)==='open',bo=planState(b)==='open';if(ao!==bo)return ao?-1:1;return ao?(a.plannedDate||'9').localeCompare(b.plannedDate||'9')||(a.createdAt||0)-(b.createdAt||0):(b.createdAt||0)-(a.createdAt||0)});
+  const match=p=>(S.pf==='all'||(S.pf==='open')===(qidx[p.id]>0))&&(!S.ptype||p.typeId===S.ptype)&&(!q||(p.no+' '+p.typeName+' '+(p.code||'')).toLowerCase().includes(q));
+  const started=S.plans.filter(p=>!qidx[p.id]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const rows=queue.concat(started).filter(match);
   if(!S.plans.length){
     $('#plist').innerHTML=`<div class="empty"><div><b>ยังไม่มีแผนการผลิต</b><br>${isAdmin()?'ออกใบสั่งผลิตเพื่อให้พนักงานเริ่มการผลิตตามแผน':'รอธุรการออกใบสั่งผลิต'}</div>
     ${isAdmin()?'<div class="actions"><button class="btn primary" data-act="new-plan">+ ออกใบสั่งผลิต</button><button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button></div>':''}</div>`;return;
   }
-  $('#plist').innerHTML=rows.length?rows.map(planRow).join(''):'<div class="empty">ไม่พบรายการที่ตรงกับตัวกรอง</div>';
+  $('#plist').innerHTML=rows.length?rows.map(p=>planRow(p,qidx[p.id]||0,qn)).join(''):'<div class="empty">ไม่พบรายการที่ตรงกับตัวกรอง</div>';
 }
 function planDetail(id){
   const p=S.plans.find(x=>x.id===id);if(!p)return;
-  const s0=planState(p),code=p.code||'',o=p.orderId?S.orders.find(x=>x.id===p.orderId):null;
+  const s0=planState(p),code=p.code||'',o=p.orderId?S.orders.find(x=>x.id===p.orderId):null,qi=planQueue().findIndex(x=>x.id===id)+1;
   const ing=(p.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${fmt(p.qty*x.pct/100)} กก.</b></div>`).join('');
   const acts=[];
   if(s0==='open')acts.push(`<button class="btn primary" data-act="start-plan" data-id="${p.id}">เริ่มการผลิต</button>`);
@@ -805,7 +849,7 @@ function planDetail(id){
   if(isAdmin())acts.push(`<button class="btn" data-act="edit-plan" data-id="${p.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-plan" data-id="${p.id}">ลบ</button>`);
   openModal(`<div class="row"><div><div class="no">${esc(p.no)} <span class="pill ${s0}">${LABEL[s0]}</span></div>
     <div class="name">${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div><button class="btn sm" data-act="close">ปิด</button></div>
-  <div class="meta"><span>จำนวน <b>${fmt(p.qty)} กก.</b></span><span>วันที่ผลิต <b>${p.plannedDate?dd(p.plannedDate):'ไม่ระบุ'}</b></span></div>
+  <div class="meta">${qi?`<span>ลำดับการผลิต <b>${qi}</b></span>`:''}<span>จำนวน <b>${fmt(p.qty)} กก.</b></span><span>วันที่ผลิต <b>${p.plannedDate?dd(p.plannedDate):'ไม่ระบุ'}</b></span></div>
   ${p.note?`<div class="hint">หมายเหตุ: ${esc(p.note)}</div>`:''}
   ${o?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">เริ่มผลิตเมื่อ ${dt(o.startAt)} · ${LABEL[st(o)]}</div>`:''}
   <div><h3 class="lbl" style="margin-bottom:6px">สูตรผสม (คำนวณจาก ${fmt(p.qty)} กก.)</h3>${bar(p.formula)}<div style="margin-top:6px">${ing}</div></div>
@@ -814,13 +858,18 @@ function planDetail(id){
 function planForm(id){
   const p=id?S.plans.find(x=>x.id===id):null,locked=!!(p&&p.status==='started');
   if(!S.types.length){toast('เพิ่มชนิดข้าวและสูตรก่อนออกใบสั่งผลิต');setTab('recipes');return}
+  const queue=planQueue(),curPos=p&&!locked?queue.findIndex(x=>x.id===p.id)+1:0,maxPos=queue.length+(p&&!locked?0:1);
   openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่และหมายเหตุ</div>':''}
   <div class="grid2">
     <div class="field"><label for="p-no">เลขที่ใบสั่ง</label><input id="p-no" value="${esc(p?p.no:orderNo())}" ${locked?'readonly':''}></div>
     <div class="field"><label for="p-date">วันที่ผลิต (แผน)</label><input id="p-date" type="date" value="${esc(p?p.plannedDate:'')}"></div>
   </div>
   <div class="field"><label for="p-type">ชนิดข้าว</label><select id="p-type" ${locked?'disabled':''}>${S.types.map(t=>`<option value="${t.id}" ${p&&p.typeId===t.id?'selected':''}>${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('')}</select></div>
-  <div class="field"><label for="p-qty">จำนวนที่สั่งผลิต (กก.)</label><input id="p-qty" type="number" min="1" step="any" inputmode="decimal" value="${p?p.qty:''}" ${locked?'readonly':''} placeholder="เช่น 20000"></div>
+  <div class="grid2">
+    <div class="field"><label for="p-qty">จำนวนที่สั่งผลิต (กก.)</label><input id="p-qty" type="number" min="1" step="any" inputmode="decimal" value="${p?p.qty:''}" ${locked?'readonly':''} placeholder="เช่น 20000"></div>
+    ${locked?'':`<div class="field"><label for="p-seq">ลำดับการผลิต (1–${maxPos})</label><input id="p-seq" type="number" min="1" max="${maxPos}" step="1" inputmode="numeric" value="${curPos||maxPos}"></div>`}
+  </div>
+  ${locked?'':'<div class="hint">ใส่เลขลำดับที่ต้องการแทรก เช่น 1 คือผลิตก่อนใบอื่นทั้งหมด ใบที่อยู่ลำดับเดิมจะเลื่อนลงให้อัตโนมัติ</div>'}
   <div id="p-prev"></div>
   <div class="field"><label for="p-note">หมายเหตุ</label><textarea id="p-note">${esc(p?p.note:'')}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
@@ -833,15 +882,23 @@ function planForm(id){
       if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
       const formula=p&&p.typeId===t.id?p.formula:t.formula;
       const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,note:$('#p-note').value.trim(),status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
-      if(await put('plans',p?p.id:uid(),doc)){closeModal();toast(p?'แก้ไขใบสั่งผลิตแล้ว':'ออกใบสั่งผลิตแล้ว')}
+      const pid=p?p.id:uid();let ops;
+      if(locked)ops=[['plans',pid,doc]];
+      else{
+        const q=planQueue().filter(x=>x.id!==pid);
+        let pos=parseInt($('#p-seq').value);if(!(pos>=1))pos=q.length+1;pos=Math.min(pos,q.length+1);
+        q.splice(pos-1,0,{...doc,id:pid,seq:-1});
+        ops=seqOps(q);
+      }
+      if(await putMany(ops)){closeModal();toast(p?'แก้ไขใบสั่งผลิตแล้ว':'ออกใบสั่งผลิตแล้ว')}
     };
   });
 }
 function startPlan(id){const p=S.plans.find(x=>x.id===id);if(!p||planState(p)!=='open'){toast('แผนนี้เริ่มผลิตแล้ว');return}orderForm(null,id)}
 function planPicker(){
-  const open=S.plans.filter(p=>planState(p)==='open').sort((a,b)=>(a.plannedDate||'9').localeCompare(b.plannedDate||'9'));
+  const open=planQueue();
   openModal(`<div class="row"><h2>เลือกแผนที่จะเริ่มผลิต</h2><button class="btn sm" data-act="close">ปิด</button></div>
-  ${open.length?`<div class="list">${open.map(p=>`<button class="orow" style="grid-template-columns:1fr auto" data-act="start-plan" data-id="${p.id}"><span class="om"><b>${esc(p.typeName)} ${p.code?`<span class="code">${esc(p.code)}</span>`:''}</b><span class="no">${esc(p.no)} · ${fmt(p.qty)} กก. · ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="empty">ยังไม่มีแผนที่รอเริ่มผลิต<br>ให้ธุรการออกใบสั่งผลิตที่หน้าแผนการผลิตก่อน</div>'}`);
+  ${open.length?`<div class="list">${open.map((p,i)=>`<button class="orow" style="grid-template-columns:auto 1fr auto" data-act="start-plan" data-id="${p.id}"><span class="seq ${i===0?'next':''}">${i+1}</span><span class="om"><b>${esc(p.typeName)} ${p.code?`<span class="code">${esc(p.code)}</span>`:''}</b><span class="no">${esc(p.no)} · ${fmt(p.qty)} กก. · ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="empty">ยังไม่มีแผนที่รอเริ่มผลิต<br>ให้ธุรการออกใบสั่งผลิตที่หน้าแผนการผลิตก่อน</div>'}`);
 }
 
 /* ---------- confirm delete ---------- */
@@ -856,7 +913,7 @@ function confirmDel(kind,id){
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn danger solid" id="d-ok">ยืนยันลบ</button></div>`,()=>{
     $('#d-ok').onclick=async()=>{
       if(await del(kind==='order'?'orders':kind==='plan'?'plans':'riceTypes',id)){
-        if(kind==='order'&&x.planId){const pl=S.plans.find(p=>p.id===x.planId);if(pl){const pd={...pl,status:'open'};delete pd.id;delete pd.orderId;await put('plans',pl.id,pd)}}
+        if(kind==='order'&&x.planId){const pl=S.plans.find(p=>p.id===x.planId);if(pl){const pd={...pl,status:'open',seq:0};delete pd.id;delete pd.orderId;await put('plans',pl.id,pd)}}
         closeModal();toast('ลบแล้ว')}
     };
   });
@@ -872,10 +929,10 @@ async function seed(){
   const f=id=>T.find(t=>t[0]===id)[4].map(x=>({name:x[0],code:x[2],pct:x[1]}));
   const L=ms=>{const x=new Date(ms);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
   const base=dOff=>{const d=new Date(now+dOff*day);d.setHours(8,0,0,0);return d.getTime()};
-  let seq=0;
+  let seq=0,qs=0;
   const mk=async(n,id,qty,dOff,order,note)=>{
     const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B026-'+n;
-    await put('plans',pid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,plannedDate:ymd(now+dOff*day),note:note||'',status:order?'started':'open',...(order?{orderId:oid}:{}),createdAt:now+(seq++)});
+    await put('plans',pid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,plannedDate:ymd(now+dOff*day),note:note||'',status:order?'started':'open',...(order?{orderId:oid}:{seq:++qs}),createdAt:now+(seq++)});
     if(order)await put('orders',oid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,planId:pid,note:note||'',pauses:[],...order});
   };
   const done=(id,dOff,hours,pauses,w,by,tIn,tOut)=>{const s0=base(dOff);return{status:'done',startAt:L(s0),endAt:L(s0+hours*hr),createdAt:s0,
@@ -900,11 +957,13 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const id=b.dataset.id;
   const act=b.dataset.act;
-  if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','seed','new-plan','edit-plan','del-plan'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
+  if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','seed','new-plan','edit-plan','del-plan','plan-up','plan-down'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
   if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
   switch(act){
     case 'open':orderDetail(id);break;
     case 'plan-open':planDetail(id);break;
+    case 'plan-up':movePlan(id,-1);break;
+    case 'plan-down':movePlan(id,1);break;
     case 'new-plan':planForm();break;
     case 'edit-plan':planForm(id);break;
     case 'del-plan':confirmDel('plan',id);break;
