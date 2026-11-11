@@ -185,7 +185,7 @@ div.orow{cursor:pointer}
 <body>
 <div class="wrap" id="app" hidden>
   <header>
-    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>เริ่มผลิต · หยุดชั่วคราว · ผลพลอยได้ · สูตรผสม</small></div>
+    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM DEMO By Champ</small></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
@@ -303,7 +303,7 @@ const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',h
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
 const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
-const API_URL='วางลิงก์ Web App ของ Google Apps Script ที่นี่';
+const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
 const LS='rice-production-v1';
