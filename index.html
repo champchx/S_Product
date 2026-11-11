@@ -960,7 +960,7 @@ async function seed(){
   const base=dOff=>{const d=new Date(now+dOff*day);d.setHours(8,0,0,0);return d.getTime()};
   let seq=0,qs=0;
   const mk=async(n,id,qty,dOff,order,note)=>{
-    const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B026-'+n;
+    const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B0PD26-'+n;
     await put('plans',pid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,plannedDate:ymd(now+dOff*day),note:note||'',status:order?'started':'open',...(order?{orderId:oid}:{seq:++qs}),createdAt:now+(seq++)});
     if(order)await put('orders',oid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,planId:pid,note:note||'',pauses:[],...order});
   };
