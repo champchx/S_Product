@@ -400,7 +400,7 @@ async function init(){
 function toast(m,ms){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,ms||2800)}
 function notice(m){const n=$('#notice');n.textContent=m;n.hidden=!m}
 function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})" title="${esc(x.name)} ${fmt(x.pct)}%"></span>`).join('')+'</div>'}
-function orderNo(){const p='SP-B026-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
+function orderNo(){const p='SP-B0PD26-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
 function openModal(html,mount){$('#sheet').innerHTML=html;$('#modal').hidden=false;document.body.style.overflow='hidden';if(mount)mount();const f=$('#sheet input:not([readonly]),#sheet select');if(f&&!f.value)f.focus()}
 function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.body.style.overflow=''}
 function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forEach(x=>s.add(x.name)));$('#dl-ing').innerHTML=[...s].map(v=>`<option value="${esc(v)}">`).join('')}
