@@ -291,9 +291,10 @@ const lossStr=m=>m?`${hm(m)} (${fmt(Math.round(m/60*100)/100)} ชม.)`:'0 ช�
 function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
 function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
 const isAdmin=()=>S.role==='admin';
-const JUMBO_KG=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) และน้ำหนักหักต่อใบ (กก.) เศษนับเป็น 1 ใบ
+const JUMBO_FULL={'รำ':703},JUMBO_DEFAULT=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) แยกตามผลพลอยได้ และน้ำหนักหักต่อใบ เศษนับเป็น 1 ใบ
+const jumboKg=name=>JUMBO_FULL[name]||JUMBO_DEFAULT;
 const jumboBags=(n,r)=>n+(r>0?1:0);
-const jumboNet=(n,r)=>JUMBO_KG*n+r-JUMBO_TARE*jumboBags(n,r);
+const jumboNet=(n,r,name)=>jumboKg(name)*n+r-JUMBO_TARE*jumboBags(n,r);
 const IN_TANKS=['AA02','AA03','AA08','A1A1'];
 const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -643,7 +644,7 @@ function bpRowHtml(n,i,cur){
 function syncJumbo(){
   document.querySelectorAll('.bpr').forEach(r=>{
     const n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0,kg=r.querySelector('[data-bp]'),h=r.querySelector('[data-jc]');
-    if(n>0||m>0){const net=jumboNet(n,m);kg.value=net;kg.readOnly=true;h.textContent=`(${JUMBO_KG} × ${n}) + ${fmt(m)} − (${JUMBO_TARE} × ${jumboBags(n,m)} ใบ) = ${fmt(net)} กก.`}
+    if(n>0||m>0){const nm=kg.dataset.bp,net=jumboNet(n,m,nm);kg.value=net;kg.readOnly=true;h.textContent=`(${jumboKg(nm)} × ${n}) + ${fmt(m)} − (${JUMBO_TARE} × ${jumboBags(n,m)} ใบ) = ${fmt(net)} กก.`}
     else{kg.readOnly=false;h.textContent=''}
   });
 }
@@ -659,7 +660,7 @@ function resultForm(id){
   ${isAdmin()?weightFields(o):''}
   <div class="field"><span class="lbl">ผลพลอยได้ ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>
     <div>${BP.map((n,i)=>bpRowHtml(n,i,cur)).join('')}</div>
-    <div class="hint">สูตรจัมโบ้: (${JUMBO_KG} × จำนวนจัมโบ้) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
+    <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำ ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
   ${isAdmin()?'<div class="notice" id="r-calc" hidden></div>':''}
   <div class="field"><label for="r-note">หมายเหตุ</label><textarea id="r-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="r-save">บันทึกผลการผลิต</button></div>`,()=>{
