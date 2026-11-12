@@ -327,6 +327,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:2});
+const pctOf=(a,t)=>t>0?fmt((+a||0)/t*100)+'%':'-';
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const dt=s=>s?new Date(s).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'-';
 const dd=s=>s?new Date(s+'T00:00').toLocaleDateString('th-TH',{dateStyle:'medium'}):'-';
@@ -529,14 +530,14 @@ function orderDetail(id){
   const pl=pauses.map((p,i)=>`<div class="kv"><span>${esc(p.reason||'ไม่ระบุเหตุผล')}<br><span class="hint">${dt(p.from)} – ${p.to?dt(p.to):'ยังหยุดอยู่'}</span></span><span><b>${hm(mins(p.from,p.to||endRef))}</b>${isAdmin()?` <button class="x" style="height:24px;font-size:15px" data-act="del-pause" data-id="${o.id}" data-i="${i}" aria-label="ลบรายการหยุด">×</button>`:''}</span></div>`).join('');
   const bp=o.byproducts||[];
   const m=mx(o);
-  const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก.':'—'}</b></div>`).join('');
+  const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก. · '+pctOf(r.kg,m.inKg):'—'}</b></div>`).join('');
   const calcBlock=`<div><h3 class="lbl" style="margin-bottom:6px">น้ำหนัก input และถัง</h3>${inRows||'<div class="hint">ยังไม่มีน้ำหนัก input</div>'}
     <div class="kv"><span>ถัง input</span><b>${tankTags(inTanksOf(o))}</b></div>
     <div class="kv"><span>ถังเก็บข้าวที่ผลิตได้</span><b>${(o.outTanks||[]).length?(o.outTanks||[]).map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—'}</b></div></div>
     ${m.hasIn?`<div><h3 class="lbl" style="margin-bottom:6px">ผลคำนวณ</h3>
       <div class="kv"><span>น้ำหนัก input รวม</span><b>${fmt(m.inKg)} กก.</b></div>
       <div class="kv"><span>อัตราการผลิต (input ÷ เวลาผลิตจริง)</span><b>${m.rate!=null?fmt(m.rate)+' ตัน/ชม.':'คำนวณเมื่อผลิตเสร็จ'}</b></div>
-      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก.</b></div><div class="kv"><span>ข้าวที่ผลิตได้ (input − ผลพลอยได้)</span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน)</b></div>`:''}</div>`:''}`;
+      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก. · ${pctOf(m.byKg,m.inKg)}</b></div><div class="kv"><span>ข้าวที่ผลิตได้ (input − ผลพลอยได้)</span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน) · ${pctOf(m.outKg,m.inKg)}</b></div><div class="hint" style="margin-top:2px">เปอร์เซ็นต์คิดจากน้ำหนัก input รวม = 100%</div>`:''}</div>`:''}`;
   const acts=[];
   if(!done){acts.push(paused?`<button class="btn primary" data-act="resume" data-id="${o.id}">เริ่มผลิตต่อ</button>`:`<button class="btn" data-act="pause" data-id="${o.id}">หยุดชั่วคราว</button>`);
     acts.push(`<button class="btn ${paused?'':'primary'}" data-act="record" data-id="${o.id}">ผลิตเสร็จ / บันทึกผล</button>`)}
@@ -557,7 +558,7 @@ function orderDetail(id){
     <div class="detail">
       <div><h3>การหยุดผลิต (${pauses.length} ครั้ง)</h3>${pl||'<span class="hint">ยังไม่มีการหยุด</span>'}</div>
       <div><h3>สูตรผสม (คำนวณจาก ${fmt(o.qty)} กก.)</h3>${ing}</div>
-      ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.${b.jumbo?` <span class="hint">(${b.jumbo} จัมโบ้${b.rem?` + เศษ ${fmt(b.rem)}`:''})</span>`:''}</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
+      ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.${m.hasIn?` · ${pctOf(b.kg,m.inKg)}`:''}${b.jumbo?` <span class="hint">(${b.jumbo} จัมโบ้${b.rem?` + เศษ ${fmt(b.rem)}`:''})</span>`:''}</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
     </div>
     ${acts.length?`<div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`:''}`);
 }
@@ -641,7 +642,10 @@ function weightFields(o){
   return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum"></div></div>`;
 }
 function readWeights(){return[...document.querySelectorAll('#w-rows .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',tank:r.querySelector('[data-wt]').value,kg:parseFloat(r.querySelector('[data-wk]').value)||0})).filter(x=>x.kg>0)}
-function wSum(){const el=$('#w-sum');if(!el)return;const k=[...document.querySelectorAll('[data-wk]')].reduce((a,e)=>a+(parseFloat(e.value)||0),0);el.textContent=k?`น้ำหนัก input รวม ${fmt(k)} กก. (${tn(k)} ตัน)`:''}
+function wSum(){const el=$('#w-sum');if(!el)return;el.style.whiteSpace='pre-line';
+  const rows=[...document.querySelectorAll('#w-rows .wr')].map(r=>({n:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',kg:parseFloat(r.querySelector('[data-wk]').value)||0})).filter(x=>x.kg>0);
+  const k=rows.reduce((a,x)=>a+x.kg,0);
+  el.textContent=k?rows.map(x=>`${x.n}  ${fmt(x.kg)} กก. = ${pctOf(x.kg,k)}`).join('\n')+`\nน้ำหนัก input รวม ${fmt(k)} กก. (${tn(k)} ตัน) = 100%`:''}
 function weightForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
   openModal(`<div><h2>น้ำหนัก input</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>${weightFields(o)}
@@ -723,7 +727,7 @@ function resultForm(id){
       const a=$('#r-start').value,b=$('#r-end').value,w=[...document.querySelectorAll('[data-wk]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0),by=[...document.querySelectorAll('[data-bp]')].reduce((x,e)=>x+(parseFloat(e.value)||0),0);
       if(!w||!a||!b){el.hidden=true;return}
       const net=Math.max(0,mins(a,b)-lossMin({...o,startAt:a,endAt:b,status:'done'}));
-      el.hidden=false;el.textContent=`ข้าวที่ผลิตได้ = ${fmt(w)} − ${fmt(by)} = ${fmt(w-by)} กก.${net>0?` · อัตราการผลิต ${fmt((w/1000)/(net/60))} ตัน/ชม.`:''}`;
+      el.hidden=false;el.style.whiteSpace='pre-line';const bl=[...document.querySelectorAll('[data-bp]')].filter(e=>parseFloat(e.value)>0).map(e=>`\n  • ${e.dataset.bp} ${fmt(parseFloat(e.value))} กก. (${pctOf(parseFloat(e.value),w)})`).join('');el.textContent=`ข้าวที่ผลิตได้ = ${fmt(w)} − ${fmt(by)} = ${fmt(w-by)} กก. (${pctOf(w-by,w)} ของ input)\nผลพลอยได้รวม ${fmt(by)} กก. (${pctOf(by,w)} ของ input)${bl}${net>0?`\nอัตราการผลิต ${fmt((w/1000)/(net/60))} ตัน/ชม.`:''}`;
     };
     $('#sheet').addEventListener('input',calc);calc();
     $('#r-save').onclick=async()=>{
