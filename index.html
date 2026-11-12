@@ -537,7 +537,7 @@ function orderDetail(id){
     ${m.hasIn?`<div><h3 class="lbl" style="margin-bottom:6px">ผลคำนวณ</h3>
       <div class="kv"><span>น้ำหนัก input รวม</span><b>${fmt(m.inKg)} กก.</b></div>
       <div class="kv"><span>อัตราการผลิต (input ÷ เวลาผลิตจริง)</span><b>${m.rate!=null?fmt(m.rate)+' ตัน/ชม.':'คำนวณเมื่อผลิตเสร็จ'}</b></div>
-      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก. · ${pctOf(m.byKg,m.inKg)}</b></div><div class="kv"><span>ข้าวที่ผลิตได้ (input − ผลพลอยได้)</span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน) · ${pctOf(m.outKg,m.inKg)}</b></div><div class="hint" style="margin-top:2px">เปอร์เซ็นต์คิดจากน้ำหนัก input รวม = 100%</div>`:''}</div>`:''}`;
+      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก. · ${pctOf(m.byKg,m.inKg)}</b></div><div class="kv"><span>ข้าวที่ผลิตได้ </span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน) · ${pctOf(m.outKg,m.inKg)}</b></div><div class="hint" style="margin-top:2px">เปอร์เซ็นต์คิดจากน้ำหนัก input รวม = 100%</div>`:''}</div>`:''}`;
   const acts=[];
   if(!done){acts.push(paused?`<button class="btn primary" data-act="resume" data-id="${o.id}">เริ่มผลิตต่อ</button>`:`<button class="btn" data-act="pause" data-id="${o.id}">หยุดชั่วคราว</button>`);
     acts.push(`<button class="btn ${paused?'':'primary'}" data-act="record" data-id="${o.id}">ผลิตเสร็จ / บันทึกผล</button>`)}
