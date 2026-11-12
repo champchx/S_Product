@@ -56,6 +56,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ulist{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.ucard{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .brand small{display:block;color:var(--muted);font-size:13px}
 .tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px}
 .tab{border:0;background:transparent;padding:8px 16px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:500}
@@ -196,7 +198,7 @@ div.orow{cursor:pointer}
 }
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
 </style>
-<style>.brandrow{display:flex;align-items:center;gap:10px}.logo{height:34px;width:auto;background:#00A8D0;padding:7px 10px;border-radius:9px;flex:none}.logo.big{height:46px;margin-bottom:12px}@media(max-width:480px){.brandrow{gap:8px}.brandrow .logo{height:26px;padding:5px 7px}.brandrow h1{font-size:16px;white-space:nowrap}.brandrow small{font-size:11px;white-space:nowrap}}
+<style>.brandrow{display:flex;align-items:center;gap:10px}.logo{height:34px;width:auto;background:#00A8D0;padding:7px 10px;border-radius:9px;flex:none}.logo.big{height:46px;margin-bottom:12px}@media(max-width:480px){.brandrow{gap:8px}.brandrow .logo{height:26px;padding:5px 7px}.brandrow h1{font-size:16px;white-space:nowrap}.brandrow small{font-size:11px;white-space:nowrap}header{flex-wrap:wrap!important}header .brandrow{flex:1 1 100%!important}header #who{width:100%;max-width:100%!important;justify-content:flex-end;flex-wrap:nowrap;white-space:nowrap;gap:6px}header #who .btn{padding:6px 10px!important;font-size:13px!important;min-height:36px!important}}
 /* ===== มือถือ / แอป ===== */
 html{-webkit-text-size-adjust:100%}
 button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -248,6 +250,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
       <button class="tab" role="tab" id="tab-dash" data-act="tab" data-tab="dash">แดชบอร์ด</button>
       <button class="tab" role="tab" id="tab-recipes" data-act="tab" data-tab="recipes">ชนิดข้าว / สูตร</button>
+      <button class="tab" role="tab" id="tab-users" data-act="tab" data-tab="users">ผู้ใช้งาน</button>
     </div>
     <div id="who" class="who"></div>
   </header>
@@ -315,6 +318,13 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
     </div>
     <div id="types" class="recipes"></div>
   </section>
+  <section id="users-view" class="wrap" style="gap:14px" hidden>
+    <div class="row" style="align-items:center">
+      <p class="hint" style="margin:0">จัดการรายชื่อพนักงาน ชื่อเล่นจะให้เลือกตอนเข้าใช้งาน และแสดงในข้อความแจ้งเตือนทาง LINE</p>
+      <button class="btn primary" data-act="new-user">+ เพิ่มผู้ใช้</button>
+    </div>
+    <div id="users" class="recipes"></div>
+  </section>
 </div>
 
 <div id="login" class="scrim" style="z-index:40" hidden></div>
@@ -343,6 +353,7 @@ const lossStr=m=>m?`${hm(m)} (${fmt(Math.round(m/60*100)/100)} ชม.)`:'0 ช�
 function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
 function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
 const isAdmin=()=>S.role==='admin';
+const byName=()=>S.role==='admin'?'ธุรการ':(S.role?(S.nick?S.nick+' (พนักงาน)':'พนักงาน'):'');
 const JUMBO_FULL={'รำ':703},JUMBO_DEFAULT=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) แยกตามผลพลอยได้ และน้ำหนักหักต่อใบ เศษนับเป็น 1 ใบ
 const jumboKg=name=>JUMBO_FULL[name]||JUMBO_DEFAULT;
 const jumboBags=(n,r)=>n+(r>0?1:0);
@@ -364,7 +375,7 @@ function mx(o){
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
-const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
 const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
@@ -384,7 +395,7 @@ async function apiRaw(body){
   let last;
   for(let k=0;k<3;k++){
     try{
-      const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({by:(typeof S!=='undefined'&&S.role==='admin')?'ธุรการ':(typeof S!=='undefined'&&S.role?'พนักงาน':'')},body))});
+      const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({by:byName()},body))});
       const t=await r.text();let j;
       try{j=JSON.parse(t)}catch(e){throw new Error('ลิงก์ Web App ตอบกลับไม่ถูกต้อง (ตรวจว่าตั้งค่า Who has access เป็น Anyone และ Deploy เวอร์ชันล่าสุดแล้ว)')}
       if(!j.ok)throw new Error(j.error||'api error');
@@ -403,7 +414,10 @@ async function pull(){
   if(pending>0||wv!==v0)return; // มีการบันทึกระหว่างโหลด ข้อมูลที่ได้มาอาจเก่ากว่า จึงไม่นำมาทับ
   S.types=j.riceTypes||[];S.orders=j.orders||[];S.plans=j.plans||[];
   const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
+  const uu=(j.settings||[]).find(x=>x.id==='users'),nl=uu&&Array.isArray(uu.list)?uu.list:[],usig=JSON.stringify(nl);
+  const chg=usig!==S._usig;S._usig=usig;S.users=nl;
   S.loaded=true;notice('');safeRender();
+  if(!S.role&&chg&&!S.loginUser&&typeof showLogin==='function'&&!$('#login').hidden)showLogin();
 }
 async function putMany(ops){
   try{
@@ -429,13 +443,18 @@ async function del(coll,id){
     return true;
   }catch(e){fail('ลบไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
+async function saveUsers(list){
+  const old=S.users;S.users=list;S._usig=JSON.stringify(list);wv++;
+  if(SHEET){pending++;try{await api({action:'set',coll:'settings',id:'users',data:{list}})}catch(e){S.users=old;S._usig=JSON.stringify(old);throw e}finally{pending--;wv++}}
+  else{try{localStorage.setItem(LS+'-users',JSON.stringify(list))}catch(e){}}
+}
 async function saveAdminHash(h){
   S.adminHash=h;
   if(SHEET){await api({action:'set',coll:'settings',id:'admin',data:{hash:h}})}
   else{try{localStorage.setItem(LS+'-admin',h)}catch(e){}}
 }
 async function init(){
-  try{S.role=sessionStorage.getItem('rice-role')||null}catch(e){}
+  try{S.role=sessionStorage.getItem('rice-role')||null;S.nick=sessionStorage.getItem('rice-nick')||'';S.uid=sessionStorage.getItem('rice-uid')||''}catch(e){}
   if(SHEET){
     render();notice('กำลังโหลดข้อมูลจาก Google Sheets…');
     try{await pull()}catch(e){notice('เชื่อมต่อ Google Sheets ไม่ได้ กรุณาตรวจสอบลิงก์ API_URL และการตั้งค่าแชร์ของ Web App')}
@@ -443,7 +462,7 @@ async function init(){
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
     return;
   }
-  try{S.adminHash=localStorage.getItem(LS+'-admin')||null}catch(e){}
+  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]')}catch(e){}
   lsLoad();render();
   notice('ยังไม่ได้ตั้งค่า API_URL ข้อมูลจะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น');
 }
@@ -460,14 +479,71 @@ function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forE
 /* ---------- login ---------- */
 function showLogin(){
   const L=$('#login');
+  const us=[...S.users].sort((a,b)=>a.nick.localeCompare(b.nick,'th'));
+  const cu=S.loginUser?S.users.find(x=>x.id===S.loginUser):null;if(S.loginUser&&!cu)S.loginUser=null;
+  let staffPick;
+  if(cu){
+    const first=!cu.pin;
+    staffPick=`<div class="field"><span class="lbl">สวัสดี ${esc(cu.nick)}</span>
+      ${first?`<div class="hint">ยังไม่เคยตั้งรหัส กรุณาตั้งรหัสส่วนตัว (อย่างน้อย 4 ตัว)</div><label for="l-upin" class="lbl">รหัสใหม่</label><input id="l-upin" type="password" inputmode="numeric" autocomplete="off"><label for="l-upin2" class="lbl">ยืนยันรหัสใหม่</label><input id="l-upin2" type="password" inputmode="numeric" autocomplete="off">`
+      :`<label for="l-upin" class="lbl">รหัสของคุณ</label><input id="l-upin" type="password" inputmode="numeric" autocomplete="off">`}</div>
+      <button class="btn primary" style="padding:14px" data-act="login-user" data-id="${cu.id}">${first?'ตั้งรหัสและเข้าใช้งาน':'เข้าใช้งาน'}</button>
+      <button class="btn" data-act="login-back">เลือกชื่ออื่น</button>`;
+  }else if(us.length){
+    staffPick=`<div class="field"><span class="lbl">พนักงาน เลือกชื่อของคุณ</span><div class="ulist">${us.map(u=>`<button class="btn primary" style="padding:14px 8px" data-act="pick-user" data-id="${u.id}">${esc(u.nick)}</button>`).join('')}</div></div>`;
+  }else staffPick=`<button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>`;
   L.innerHTML=`<div class="sheet" style="max-width:420px"><div><img class="logo big" src="logo-white.png" alt="BSCM"><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
-  <button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>
+  ${staffPick}
   <div class="field"><label for="l-pw">ธุรการ ใส่รหัสผ่าน</label><input id="l-pw" type="password" autocomplete="off"></div>
   <button class="btn" data-act="login-admin" style="padding:12px">เข้าใช้งานในฐานะธุรการ</button></div>`;
   L.hidden=false;
   $('#l-pw').addEventListener('keydown',e=>{if(e.key==='Enter')loginAdmin()});
+  const up=$('#l-upin');if(up){up.focus();const go=e=>{if(e.key==='Enter')loginUser(S.loginUser)};up.addEventListener('keydown',go);const u2=$('#l-upin2');if(u2)u2.addEventListener('keydown',go)}
 }
-function setRole(r){S.role=r;try{r?sessionStorage.setItem('rice-role',r):sessionStorage.removeItem('rice-role')}catch(e){}
+const pinHash=(pin,id)=>sha(pin+':'+id);
+async function refreshUsers(){if(typeof pull==='function'){try{await pull()}catch(e){}}}
+async function loginUser(id){
+  await refreshUsers();
+  const u=S.users.find(x=>x.id===id);if(!u){S.loginUser=null;showLogin();return toast('ไม่พบชื่อนี้ในระบบ')}
+  const pin=($('#l-upin')||{}).value||'';
+  if(!u.pin){
+    const p2=($('#l-upin2')||{}).value||'';
+    if(pin.length<4)return toast('รหัสต้องมีอย่างน้อย 4 ตัว');
+    if(pin!==p2)return toast('รหัสทั้งสองช่องไม่ตรงกัน');
+    try{const ph=await pinHash(pin,id);await saveUsers(S.users.map(x=>x.id===id?{...x,pin:ph}:x))}catch(e){return fail('ตั้งรหัสไม่สำเร็จ',e)}
+  }else{
+    if(!pin)return toast('ใส่รหัสของคุณ');
+    if(await pinHash(pin,id)!==u.pin){toast('รหัสไม่ถูกต้อง');$('#l-upin').value='';return}
+  }
+  S.loginUser=null;setRole('staff',u.nick,u.id);
+}
+function accountForm(){
+  const u=S.users.find(x=>x.id===S.uid);
+  if(!u){toast('ไม่พบบัญชีของคุณ กรุณาออกจากระบบแล้วเข้าใหม่');return}
+  openModal(`<h2>บัญชีของฉัน</h2>
+  <div class="field"><label for="a-nick">ชื่อเล่น</label><input id="a-nick" maxlength="20" value="${esc(u.nick)}"></div>
+  <div class="field"><span class="lbl">เปลี่ยนรหัส (เว้นว่างถ้าไม่เปลี่ยน)</span>
+    <input id="a-old" type="password" inputmode="numeric" autocomplete="off" placeholder="รหัสปัจจุบัน">
+    <input id="a-new" type="password" inputmode="numeric" autocomplete="off" placeholder="รหัสใหม่ (อย่างน้อย 4 ตัว)">
+    <input id="a-new2" type="password" inputmode="numeric" autocomplete="off" placeholder="ยืนยันรหัสใหม่"></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="a-save">บันทึก</button></div>`,()=>{
+    $('#a-save').onclick=async()=>{
+      await refreshUsers();
+      const cur=S.users.find(x=>x.id===S.uid);if(!cur)return toast('ไม่พบบัญชีของคุณ');
+      const nick=$('#a-nick').value.trim();if(!nick)return toast('กรอกชื่อเล่น');
+      if(S.users.some(x=>x.id!==cur.id&&x.nick.toLowerCase()===nick.toLowerCase()))return toast('ชื่อเล่นนี้ถูกใช้แล้ว');
+      let pin=cur.pin;const nw=$('#a-new').value;
+      if(nw||$('#a-old').value||$('#a-new2').value){
+        if(cur.pin&&await pinHash($('#a-old').value,cur.id)!==cur.pin)return toast('รหัสปัจจุบันไม่ถูกต้อง');
+        if(nw.length<4)return toast('รหัสใหม่ต้องมีอย่างน้อย 4 ตัว');
+        if(nw!==$('#a-new2').value)return toast('รหัสใหม่ทั้งสองช่องไม่ตรงกัน');
+        pin=await pinHash(nw,cur.id);
+      }
+      try{await saveUsers(S.users.map(x=>x.id===cur.id?{...x,nick,pin}:x));S.nick=nick;try{sessionStorage.setItem('rice-nick',nick)}catch(e){}closeModal();toast('บันทึกบัญชีแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+    };
+  });
+}
+function setRole(r,nick,uid){S.role=r;S.nick=r==='staff'?(nick||''):'';S.uid=r==='staff'?(uid||''):'';S.loginUser=null;try{r?sessionStorage.setItem('rice-role',r):sessionStorage.removeItem('rice-role');S.nick?sessionStorage.setItem('rice-nick',S.nick):sessionStorage.removeItem('rice-nick');S.uid?sessionStorage.setItem('rice-uid',S.uid):sessionStorage.removeItem('rice-uid')}catch(e){}
   if(r){$('#login').hidden=true;$('#login').innerHTML=''}render()}
 async function loginAdmin(){
   const v=$('#l-pw').value;if(!v)return toast('ใส่รหัสผ่านธุรการ');
@@ -490,7 +566,7 @@ function pwForm(){
   });
 }
 function renderWho(){
-  $('#who').innerHTML=S.role?`<span class="role">${isAdmin()?'ธุรการ':'พนักงาน'}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':''}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
+  $('#who').innerHTML=S.role?`<span class="role">${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':(S.uid?'<button class="btn sm" data-act="my-account">บัญชีของฉัน</button>':'')}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
 }
 
 /* ---------- render ---------- */
@@ -499,12 +575,12 @@ function render(){
   renderWho();
   if(!S.role){$('#app').hidden=true;if($('#login').hidden)showLogin();return}
   $('#app').hidden=false;
-  if(!isAdmin()&&S.tab==='recipes')S.tab='orders';
-  $('#tab-recipes').hidden=!isAdmin();
+  if(!isAdmin()&&(S.tab==='recipes'||S.tab==='users'))S.tab='orders';
+  $('#tab-recipes').hidden=!isAdmin();$('#tab-users').hidden=!isAdmin();
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
-  $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#dash-view').hidden=S.tab!=='dash';
+  $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#users-view').hidden=S.tab!=='users';$('#dash-view').hidden=S.tab!=='dash';
   document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.pfilter?c.dataset.pfilter===S.pf:c.dataset.filter===S.filter));
-  ingDatalist();renderSummary();renderOrders();renderPlans();renderTypes();if(S.tab==='dash')renderDash();
+  ingDatalist();renderSummary();renderOrders();renderPlans();renderTypes();renderUsers();if(S.tab==='dash')renderDash();
 }
 function renderSummary(){
   const c={running:0,paused:0,done:0};let loss=0;
@@ -744,6 +820,44 @@ function resultForm(id){
 
 /* ---------- rice type + formula ---------- */
 function fRow(x){return `<div class="line fr"><input list="dl-ing" placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+/* ---------- users ---------- */
+function renderUsers(){
+  if(!isAdmin()||S.tab!=='users')return;
+  if(!S.users.length){$('#users').innerHTML=`<div class="empty" style="grid-column:1/-1"><div><b>ยังไม่มีรายชื่อพนักงาน</b><br>เพิ่มชื่อเล่นเพื่อให้พนักงานเลือกชื่อตอนเข้าใช้งาน และให้ข้อความ LINE บอกได้ว่าใครทำรายการ</div>
+    <div class="actions"><button class="btn primary" data-act="new-user">+ เพิ่มผู้ใช้</button></div></div>`;return}
+  const us=[...S.users].sort((a,b)=>a.nick.localeCompare(b.nick,'th'));
+  $('#users').innerHTML=us.map(u=>`<article class="card"><div class="ucard"><div><div class="name">${esc(u.nick)}</div><div class="no">${u.name?esc(u.name):'<span class="hint">ไม่ระบุชื่อ-นามสกุล</span>'} · <span class="hint">${u.pin?'ตั้งรหัสแล้ว':'ยังไม่ตั้งรหัส'}</span></div></div>
+    <div class="actions" style="margin:0"><button class="btn sm" data-act="edit-user" data-id="${u.id}">แก้ไข</button><button class="btn sm danger" data-act="del-user" data-id="${u.id}">ลบ</button></div></div></article>`).join('');
+}
+function userForm(id){
+  const u=id?S.users.find(x=>x.id===id):null;
+  openModal(`<h2>${u?'แก้ไขผู้ใช้':'เพิ่มผู้ใช้'}</h2>
+  <div class="field"><label for="u-nick">ชื่อเล่น (แสดงตอนเข้าใช้งานและใน LINE)</label><input id="u-nick" maxlength="20" value="${esc(u?u.nick:'')}" placeholder="เช่น เอก"></div>
+  <div class="field"><label for="u-name">ชื่อ-นามสกุล (ไม่บังคับ)</label><input id="u-name" maxlength="60" value="${esc(u?u.name||'':'')}"></div>
+  <div class="field"><label for="u-pin">${u?'ตั้งรหัสใหม่ให้ผู้ใช้ (เว้นว่างถ้าไม่เปลี่ยน)':'รหัสประจำตัว (เว้นว่างให้ผู้ใช้ตั้งเองตอนเข้าครั้งแรก)'}</label><input id="u-pin" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="อย่างน้อย 4 ตัว">
+    ${u&&u.pin?'<label class="ck" style="margin-top:6px"><input type="checkbox" id="u-clr"> ล้างรหัสเดิม ให้ผู้ใช้ตั้งรหัสใหม่เองตอนเข้าครั้งถัดไป</label>':''}</div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="u-save">บันทึก</button></div>`,()=>{
+    $('#u-save').onclick=async()=>{
+      const nick=$('#u-nick').value.trim();if(!nick)return toast('กรอกชื่อเล่น');
+      if(S.users.some(x=>x.id!==(u&&u.id)&&x.nick.toLowerCase()===nick.toLowerCase()))return toast('ชื่อเล่นนี้ถูกใช้แล้ว');
+      const pin=$('#u-pin').value.trim();if(pin&&pin.length<4)return toast('รหัสต้องมีอย่างน้อย 4 ตัว');
+      await refreshUsers();
+      if(S.users.some(x=>x.id!==(u&&u.id)&&x.nick.toLowerCase()===nick.toLowerCase()))return toast('ชื่อเล่นนี้ถูกใช้แล้ว');
+      const rid=u?u.id:uid(),old=u?S.users.find(x=>x.id===u.id)||u:null;
+      let ph=old?old.pin:undefined;if(pin)ph=await pinHash(pin,rid);else if(old&&$('#u-clr')&&$('#u-clr').checked)ph=undefined;
+      const rec={id:rid,nick,name:$('#u-name').value.trim()};if(ph)rec.pin=ph;
+      const list=u?S.users.map(x=>x.id===rid?rec:x):[...S.users,rec];
+      try{await saveUsers(list);closeModal();toast('บันทึกผู้ใช้แล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+    };
+  });
+}
+function confirmUserDel(id){
+  const u=S.users.find(x=>x.id===id);if(!u)return;
+  openModal(`<h2>ลบผู้ใช้</h2><p style="margin:0">ต้องการลบ <b>${esc(u.nick)}</b> ใช่หรือไม่ ชื่อนี้จะไม่แสดงในหน้าเข้าใช้งานอีก</p>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn danger solid" id="d-ok">ยืนยันลบ</button></div>`,()=>{
+    $('#d-ok').onclick=async()=>{try{await refreshUsers();await saveUsers(S.users.filter(x=>x.id!==id));closeModal();toast('ลบผู้ใช้แล้ว');render()}catch(e){fail('ลบไม่สำเร็จ',e)}};
+  });
+}
 function typeForm(id){
   const t=id?S.types.find(x=>x.id===id):null;
   openModal(`<h2>${t?'แก้ไขชนิดข้าว':'เพิ่มชนิดข้าว'}</h2>
@@ -1034,14 +1148,14 @@ async function seed(){
 }
 
 /* ---------- events ---------- */
-function setTab(t){if(t==='recipes'&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
+function setTab(t){if((t==='recipes'||t==='users')&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
 document.addEventListener('click',e=>{
   const ch=e.target.closest('.chip');if(ch){if(ch.dataset.pfilter)S.pf=ch.dataset.pfilter;else S.filter=ch.dataset.filter;render();return}
   if(e.target.id==='modal'){closeModal();return}
   const b=e.target.closest('[data-act]');if(!b)return;
   const id=b.dataset.id;
   const act=b.dataset.act;
-  if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','seed','new-plan','edit-plan','del-plan','plan-up','plan-down'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
+  if(['edit-order','del-order','edit-type','del-type','reopen','del-pause','pw','weight','new-type','new-user','edit-user','del-user','seed','new-plan','edit-plan','del-plan','plan-up','plan-down'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
   if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
   switch(act){
     case 'jumbo':{const jb=b.closest('.bpr').querySelector('.jb');jb.hidden=!jb.hidden;if(!jb.hidden)jb.querySelector('input').focus();break}
@@ -1062,6 +1176,13 @@ document.addEventListener('click',e=>{
     case 'dclear':S.dash.type='';S.dash.status='all';S.dash.q='';$('#d-q').value='';renderDash();break;
     case 'add-w':$('#w-rows').insertAdjacentHTML('beforeend',wRow());break;
     case 'login-staff':setRole('staff');break;
+    case 'pick-user':S.loginUser=id;showLogin();break;
+    case 'login-back':S.loginUser=null;showLogin();break;
+    case 'login-user':loginUser(id);break;
+    case 'my-account':accountForm();break;
+    case 'new-user':userForm();break;
+    case 'edit-user':userForm(id);break;
+    case 'del-user':confirmUserDel(id);break;
     case 'login-admin':loginAdmin();break;
     case 'logout':closeModal();setRole(null);break;
     case 'pw':pwForm();break;
