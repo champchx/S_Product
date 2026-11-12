@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>ระบบจัดการผลิตข้าว</title>
+<meta name="theme-color" content="#00A8D0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BSCM ผลิตข้าว">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
 <style>
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0;font:14px system-ui,sans-serif}
@@ -187,11 +196,53 @@ div.orow{cursor:pointer}
 }
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}.card:hover{border-color:var(--accent)}}
 </style>
+<style>.brandrow{display:flex;align-items:center;gap:10px}.logo{height:34px;width:auto;background:#00A8D0;padding:7px 10px;border-radius:9px;flex:none}.logo.big{height:46px;margin-bottom:12px}@media(max-width:480px){.brandrow{gap:8px}.brandrow .logo{height:26px;padding:5px 7px}.brandrow h1{font-size:16px;white-space:nowrap}.brandrow small{font-size:11px;white-space:nowrap}}
+/* ===== มือถือ / แอป ===== */
+html{-webkit-text-size-adjust:100%}
+button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#installbar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:25;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.18);max-width:520px;margin:0 auto}
+#installbar span{flex:1;font-size:14px}
+@media (max-width:720px){
+  body{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));font-size:16px}
+  .wrap{gap:14px}
+  h1{font-size:19px}
+  /* แถบเมนูล่าง */
+  header>.tabs{position:fixed;left:0;right:0;bottom:0;z-index:15;border-radius:0;gap:0;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);justify-content:space-around}
+  header>.tabs .tab{flex:1;min-height:52px;padding:6px 2px;font-size:12.5px;line-height:1.25;border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center}
+  header>.tabs .tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:none;font-weight:600}
+  header{flex-wrap:nowrap;align-items:flex-start}
+  .brand{min-width:0}
+  .who{justify-content:flex-end;text-align:right;max-width:46%}
+  /* ปุ่มและช่องกรอกใหญ่ขึ้น กดง่าย และกัน iOS ซูมเองตอนพิมพ์ */
+  .btn{min-height:44px;padding:10px 16px}
+  input,select,textarea{font-size:16px;min-height:44px;padding:10px 12px}
+  textarea{min-height:88px}
+  input[type=checkbox],input[type=radio]{min-height:0;width:22px;height:22px}
+  .chip{padding:9px 14px;font-size:14px}
+  .toolbar{gap:8px}
+  .toolbar .btn.primary{flex:1 1 100%}
+  .toolbar select{width:100%!important}
+  .toolbar .grow{flex:1 1 100%}
+  .foot{position:sticky;bottom:0;background:var(--surface);padding-top:10px;margin-top:6px;flex-wrap:nowrap}
+  .foot .btn{flex:1;white-space:normal}
+  /* หน้าต่างกรอกข้อมูล: เลื่อนขึ้นจากด้านล่างเต็มความกว้าง */
+  .scrim{padding:0;align-items:flex-end}
+  .sheet{max-width:none;margin:0;border-radius:18px 18px 0 0;max-height:94dvh;overflow-y:auto;padding:18px 16px calc(14px + env(safe-area-inset-bottom,0px));border-bottom:0;-webkit-overflow-scrolling:touch}
+  #login.scrim{align-items:center;padding:16px}
+  #login .sheet{border-radius:16px;max-height:none}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  #installbar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .recipes{grid-template-columns:1fr}
+}
+@media (display-mode:standalone){body{padding-top:max(12px,env(safe-area-inset-top,0px))}}
+@media print{header>.tabs,#installbar{display:none!important}body{padding-bottom:0}}
+</style>
 </head>
 <body>
 <div class="wrap" id="app" hidden>
   <header>
-    <div class="brand"><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM DEMO By Champ</small></div>
+    <div class="brand brandrow"><img class="logo" src="logo-white.png" alt="BSCM"><div><h1>ระบบจัดการผลิตข้าว</h1><small>BSCM DEMO By Champ</small></div></div>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
@@ -332,7 +383,7 @@ async function apiRaw(body){
   let last;
   for(let k=0;k<3;k++){
     try{
-      const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+      const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({by:(typeof S!=='undefined'&&S.role==='admin')?'ธุรการ':(typeof S!=='undefined'&&S.role?'พนักงาน':'')},body))});
       const t=await r.text();let j;
       try{j=JSON.parse(t)}catch(e){throw new Error('ลิงก์ Web App ตอบกลับไม่ถูกต้อง (ตรวจว่าตั้งค่า Who has access เป็น Anyone และ Deploy เวอร์ชันล่าสุดแล้ว)')}
       if(!j.ok)throw new Error(j.error||'api error');
@@ -400,7 +451,7 @@ async function init(){
 function toast(m,ms){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,ms||2800)}
 function notice(m){const n=$('#notice');n.textContent=m;n.hidden=!m}
 function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})" title="${esc(x.name)} ${fmt(x.pct)}%"></span>`).join('')+'</div>'}
-function orderNo(){const p='SP-B0PD26-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
+function orderNo(){const p='SP-B026-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
 function openModal(html,mount){$('#sheet').innerHTML=html;$('#modal').hidden=false;document.body.style.overflow='hidden';if(mount)mount();const f=$('#sheet input:not([readonly]),#sheet select');if(f&&!f.value)f.focus()}
 function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.body.style.overflow=''}
 function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forEach(x=>s.add(x.name)));$('#dl-ing').innerHTML=[...s].map(v=>`<option value="${esc(v)}">`).join('')}
@@ -408,7 +459,7 @@ function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forE
 /* ---------- login ---------- */
 function showLogin(){
   const L=$('#login');
-  L.innerHTML=`<div class="sheet" style="max-width:420px"><div><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
+  L.innerHTML=`<div class="sheet" style="max-width:420px"><div><img class="logo big" src="logo-white.png" alt="BSCM"><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
   <button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>
   <div class="field"><label for="l-pw">ธุรการ ใส่รหัสผ่าน</label><input id="l-pw" type="password" autocomplete="off"></div>
   <button class="btn" data-act="login-admin" style="padding:12px">เข้าใช้งานในฐานะธุรการ</button></div>`;
@@ -693,8 +744,8 @@ function typeForm(id){
   const t=id?S.types.find(x=>x.id===id):null;
   openModal(`<h2>${t?'แก้ไขชนิดข้าว':'เพิ่มชนิดข้าว'}</h2>
   <div class="grid2">
-    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น หงษ์ทิพย์"></div>
-    <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น W6MIX023-NB"></div>
+    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น ข้าวหอมมะลิผสม"></div>
+    <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น JM-7030"></div>
   </div>
   <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%)</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-ing">+ เพิ่มส่วนผสม</button><button class="btn sm" type="button" data-act="fill">เติมส่วนที่เหลือ</button></div></div>
@@ -960,7 +1011,7 @@ async function seed(){
   const base=dOff=>{const d=new Date(now+dOff*day);d.setHours(8,0,0,0);return d.getTime()};
   let seq=0,qs=0;
   const mk=async(n,id,qty,dOff,order,note)=>{
-    const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B0PD26-'+n;
+    const T0=T.find(t=>t[0]===id),pid=uid(),oid=uid(),no='SP-B026-'+n;
     await put('plans',pid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,plannedDate:ymd(now+dOff*day),note:note||'',status:order?'started':'open',...(order?{orderId:oid}:{seq:++qs}),createdAt:now+(seq++)});
     if(order)await put('orders',oid,{no,typeId:id,typeName:T0[1],code:T0[2],formula:f(id),qty,planId:pid,note:note||'',pauses:[],...order});
   };
@@ -1043,6 +1094,32 @@ addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((h==='plans
 {const h=location.hash.slice(1);if(h==='plans'||h==='orders'||h==='recipes'||h==='dash')S.tab=h}
 setInterval(()=>{if(S.role&&$('#modal').hidden){if(S.tab==='orders'){renderSummary();renderOrders()}else if(S.tab==='plans')renderPlans();else if(S.tab==='dash')renderDash()}},60000);
 init();
+
+/* ---------- ติดตั้งเป็นแอป ---------- */
+(function(){
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+    addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
+  const standalone=matchMedia('(display-mode:standalone)').matches||navigator.standalone;
+  let dismissed=false;try{dismissed=localStorage.getItem('install-dismissed')==='1'}catch(e){}
+  if(standalone||dismissed)return;
+  let ev=null;
+  function bar(text,btn){
+    if(document.getElementById('installbar'))return;
+    const d=document.createElement('div');d.id='installbar';
+    d.innerHTML='<span></span>'+(btn?'<button class="btn primary" type="button">'+btn+'</button>':'')+'<button class="btn" type="button" aria-label="ปิด">ปิด</button>';
+    d.querySelector('span').textContent=text;
+    const bs=d.querySelectorAll('button');
+    if(btn)bs[0].onclick=async()=>{if(ev){ev.prompt();try{await ev.userChoice}catch(e){}ev=null}d.remove()};
+    bs[bs.length-1].onclick=()=>{d.remove();try{localStorage.setItem('install-dismissed','1')}catch(e){}};
+    document.body.appendChild(d);
+  }
+  addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e;bar('ติดตั้งเป็นแอปบนเครื่อง เปิดใช้ได้เหมือนแอปทั่วไป','ติดตั้ง')});
+  const ua=navigator.userAgent;
+  if(/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios/i.test(ua)){
+    setTimeout(()=>bar('ติดตั้งแอป: แตะปุ่มแชร์ (สี่เหลี่ยมมีลูกศรขึ้น) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม"'),2500);
+  }
+})();
 </script>
 </body>
 </html>
