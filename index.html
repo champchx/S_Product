@@ -56,7 +56,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.ulist{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.ulist{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.utile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;height:auto;white-space:normal;word-break:break-word}
+.utile b{font-size:14px;line-height:1.25}
+.av{border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:none;vertical-align:middle}
+.avrow{display:flex;align-items:center;gap:14px}
+.avbtns{display:flex;flex-wrap:wrap;gap:8px}
 .ucard{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .brand small{display:block;color:var(--muted);font-size:13px}
 .tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px}
@@ -375,7 +380,7 @@ function mx(o){
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
-const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
 const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
@@ -414,8 +419,10 @@ async function pull(){
   if(pending>0||wv!==v0)return; // มีการบันทึกระหว่างโหลด ข้อมูลที่ได้มาอาจเก่ากว่า จึงไม่นำมาทับ
   S.types=j.riceTypes||[];S.orders=j.orders||[];S.plans=j.plans||[];
   const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
-  const uu=(j.settings||[]).find(x=>x.id==='users'),nl=uu&&Array.isArray(uu.list)?uu.list:[],usig=JSON.stringify(nl);
-  const chg=usig!==S._usig;S._usig=usig;S.users=nl;
+  const uu=(j.settings||[]).find(x=>x.id==='users'),nl=uu&&Array.isArray(uu.list)?uu.list:[],avm={};
+  (j.settings||[]).forEach(x=>{if(/^avatar-/.test(x.id)&&x.img)avm[x.id.slice(7)]=x.img});
+  const usig=JSON.stringify(nl)+JSON.stringify(Object.keys(avm).sort().map(k=>k+':'+avm[k].length));
+  const chg=usig!==S._usig;S._usig=usig;S.users=nl;S.avatars=avm;
   S.loaded=true;notice('');safeRender();
   if(!S.role&&chg&&!S.loginUser&&typeof showLogin==='function'&&!$('#login').hidden)showLogin();
 }
@@ -443,6 +450,11 @@ async function del(coll,id){
     return true;
   }catch(e){fail('ลบไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
+async function saveAvatar(id,img){
+  const old=S.avatars[id];if(img)S.avatars[id]=img;else delete S.avatars[id];wv++;
+  if(SHEET){pending++;try{await api(img?{action:'set',coll:'settings',id:'avatar-'+id,data:{img}}:{action:'delete',coll:'settings',id:'avatar-'+id})}catch(e){if(old)S.avatars[id]=old;else delete S.avatars[id];throw e}finally{pending--;wv++}}
+  else{try{localStorage.setItem(LS+'-avatars',JSON.stringify(S.avatars))}catch(e){}}
+}
 async function saveUsers(list){
   const old=S.users;S.users=list;S._usig=JSON.stringify(list);wv++;
   if(SHEET){pending++;try{await api({action:'set',coll:'settings',id:'users',data:{list}})}catch(e){S.users=old;S._usig=JSON.stringify(old);throw e}finally{pending--;wv++}}
@@ -462,7 +474,7 @@ async function init(){
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
     return;
   }
-  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]')}catch(e){}
+  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]');S.avatars=JSON.parse(localStorage.getItem(LS+'-avatars')||'{}')}catch(e){}
   lsLoad();render();
   notice('ยังไม่ได้ตั้งค่า API_URL ข้อมูลจะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น');
 }
@@ -477,6 +489,25 @@ function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.
 function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forEach(x=>s.add(x.name)));$('#dl-ing').innerHTML=[...s].map(v=>`<option value="${esc(v)}">`).join('')}
 
 /* ---------- login ---------- */
+const AV_COLORS=['#2E6B4F','#1F6F8B','#8B5E1F','#6B3FA0','#B03A48','#3C6E71','#7A6A1E','#4B5FB3'];
+const avColor=k=>{let h=0;for(const c of String(k||''))h=(h*31+c.charCodeAt(0))>>>0;return AV_COLORS[h%AV_COLORS.length]};
+function avatarHtml(id,nick,sz){
+  const img=S.avatars[id],st=`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.45)}px`;
+  if(img)return `<img class="av" style="${st}" src="${img}" alt="">`;
+  const n=String(nick||'?').trim(),ch=n.replace(/^[เแโใไ]+/,'').charAt(0)||n.charAt(0)||'?';
+  return `<span class="av" style="${st};background:${avColor(id||n)}">${esc(ch.toUpperCase())}</span>`;
+}
+function fileToAvatar(file){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=()=>rej(new Error('อ่านไฟล์ไม่ได้'));r.onload=()=>{const im=new Image();im.onerror=()=>rej(new Error('ไฟล์นี้ไม่ใช่รูปภาพ'));im.onload=()=>{const n=Math.min(im.width,im.height),c=document.createElement('canvas');c.width=c.height=112;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,112,112);x.drawImage(im,(im.width-n)/2,(im.height-n)/2,n,n,0,0,112,112);res(c.toDataURL('image/jpeg',.72))};im.src=r.result};r.readAsDataURL(file)})}
+function avatarPicker(id,nick){return `<div class="field"><span class="lbl">รูปโปรไฟล์</span><div class="avrow"><div id="av-prev">${avatarHtml(id,nick,72)}</div>
+  <div class="avbtns"><label class="btn sm" for="av-file" style="cursor:pointer">เลือกรูป / ถ่ายรูป</label><input id="av-file" type="file" accept="image/*" style="display:none"><button class="btn sm" type="button" id="av-clr">ลบรูป</button></div></div></div>`}
+function bindAvatar(id,nickEl){
+  S._av=undefined;
+  const prev=()=>{const n=$(nickEl)?$(nickEl).value:'';const img=S._av===undefined?S.avatars[id]:S._av;$('#av-prev').innerHTML=img?`<img class="av" style="width:72px;height:72px" src="${img}" alt="">`:avatarHtml('__x'+id,n,72).replace('__x'+id,'')};
+  $('#av-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{S._av=await fileToAvatar(f);prev()}catch(err){toast(err.message||'ใช้รูปนี้ไม่ได้')}e.target.value=''};
+  $('#av-clr').onclick=()=>{S._av=null;prev()};
+  if($(nickEl))$(nickEl).addEventListener('input',()=>{if(S._av==null||(S._av===undefined&&!S.avatars[id]))prev()});
+}
+async function applyAvatar(id){if(S._av===undefined)return;const v=S._av;S._av=undefined;await saveAvatar(id,v)}
 function showLogin(){
   const L=$('#login');
   const us=[...S.users].sort((a,b)=>a.nick.localeCompare(b.nick,'th'));
@@ -484,13 +515,13 @@ function showLogin(){
   let staffPick;
   if(cu){
     const first=!cu.pin;
-    staffPick=`<div class="field"><span class="lbl">สวัสดี ${esc(cu.nick)}</span>
+    staffPick=`<div class="field" style="align-items:center;text-align:center"><div style="display:flex;justify-content:center">${avatarHtml(cu.id,cu.nick,96)}</div><span class="lbl" style="font-size:18px;margin-top:4px">สวัสดี ${esc(cu.nick)}</span>
       ${first?`<div class="hint">ยังไม่เคยตั้งรหัส กรุณาตั้งรหัสส่วนตัว (อย่างน้อย 4 ตัว)</div><label for="l-upin" class="lbl">รหัสใหม่</label><input id="l-upin" type="password" inputmode="numeric" autocomplete="off"><label for="l-upin2" class="lbl">ยืนยันรหัสใหม่</label><input id="l-upin2" type="password" inputmode="numeric" autocomplete="off">`
       :`<label for="l-upin" class="lbl">รหัสของคุณ</label><input id="l-upin" type="password" inputmode="numeric" autocomplete="off">`}</div>
       <button class="btn primary" style="padding:14px" data-act="login-user" data-id="${cu.id}">${first?'ตั้งรหัสและเข้าใช้งาน':'เข้าใช้งาน'}</button>
       <button class="btn" data-act="login-back">เลือกชื่ออื่น</button>`;
   }else if(us.length){
-    staffPick=`<div class="field"><span class="lbl">พนักงาน เลือกชื่อของคุณ</span><div class="ulist">${us.map(u=>`<button class="btn primary" style="padding:14px 8px" data-act="pick-user" data-id="${u.id}">${esc(u.nick)}</button>`).join('')}</div></div>`;
+    staffPick=`<div class="field"><span class="lbl">พนักงาน เลือกชื่อของคุณ</span><div class="ulist">${us.map(u=>`<button class="btn utile" data-act="pick-user" data-id="${u.id}">${avatarHtml(u.id,u.nick,64)}<b>${esc(u.nick)}</b></button>`).join('')}</div></div>`;
   }else staffPick=`<button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>`;
   L.innerHTML=`<div class="sheet" style="max-width:420px"><div><img class="logo big" src="logo-white.png" alt="BSCM"><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
   ${staffPick}
@@ -521,12 +552,14 @@ function accountForm(){
   const u=S.users.find(x=>x.id===S.uid);
   if(!u){toast('ไม่พบบัญชีของคุณ กรุณาออกจากระบบแล้วเข้าใหม่');return}
   openModal(`<h2>บัญชีของฉัน</h2>
+  ${avatarPicker(u.id,u.nick)}
   <div class="field"><label for="a-nick">ชื่อเล่น</label><input id="a-nick" maxlength="20" value="${esc(u.nick)}"></div>
   <div class="field"><span class="lbl">เปลี่ยนรหัส (เว้นว่างถ้าไม่เปลี่ยน)</span>
     <input id="a-old" type="password" inputmode="numeric" autocomplete="off" placeholder="รหัสปัจจุบัน">
     <input id="a-new" type="password" inputmode="numeric" autocomplete="off" placeholder="รหัสใหม่ (อย่างน้อย 4 ตัว)">
     <input id="a-new2" type="password" inputmode="numeric" autocomplete="off" placeholder="ยืนยันรหัสใหม่"></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="a-save">บันทึก</button></div>`,()=>{
+    bindAvatar(u.id,'#a-nick');
     $('#a-save').onclick=async()=>{
       await refreshUsers();
       const cur=S.users.find(x=>x.id===S.uid);if(!cur)return toast('ไม่พบบัญชีของคุณ');
@@ -539,7 +572,7 @@ function accountForm(){
         if(nw!==$('#a-new2').value)return toast('รหัสใหม่ทั้งสองช่องไม่ตรงกัน');
         pin=await pinHash(nw,cur.id);
       }
-      try{await saveUsers(S.users.map(x=>x.id===cur.id?{...x,nick,pin}:x));S.nick=nick;try{sessionStorage.setItem('rice-nick',nick)}catch(e){}closeModal();toast('บันทึกบัญชีแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+      try{await saveUsers(S.users.map(x=>x.id===cur.id?{...x,nick,pin}:x));await applyAvatar(cur.id);S.nick=nick;try{sessionStorage.setItem('rice-nick',nick)}catch(e){}closeModal();toast('บันทึกบัญชีแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
     };
   });
 }
@@ -566,7 +599,7 @@ function pwForm(){
   });
 }
 function renderWho(){
-  $('#who').innerHTML=S.role?`<span class="role">${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':(S.uid?'<button class="btn sm" data-act="my-account">บัญชีของฉัน</button>':'')}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
+  $('#who').innerHTML=S.role?`<span class="role">${!isAdmin()&&S.uid?avatarHtml(S.uid,S.nick,22)+' ':''}${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':(S.uid?'<button class="btn sm" data-act="my-account">บัญชีของฉัน</button>':'')}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
 }
 
 /* ---------- render ---------- */
@@ -826,28 +859,30 @@ function renderUsers(){
   if(!S.users.length){$('#users').innerHTML=`<div class="empty" style="grid-column:1/-1"><div><b>ยังไม่มีรายชื่อพนักงาน</b><br>เพิ่มชื่อเล่นเพื่อให้พนักงานเลือกชื่อตอนเข้าใช้งาน และให้ข้อความ LINE บอกได้ว่าใครทำรายการ</div>
     <div class="actions"><button class="btn primary" data-act="new-user">+ เพิ่มผู้ใช้</button></div></div>`;return}
   const us=[...S.users].sort((a,b)=>a.nick.localeCompare(b.nick,'th'));
-  $('#users').innerHTML=us.map(u=>`<article class="card"><div class="ucard"><div><div class="name">${esc(u.nick)}</div><div class="no">${u.name?esc(u.name):'<span class="hint">ไม่ระบุชื่อ-นามสกุล</span>'} · <span class="hint">${u.pin?'ตั้งรหัสแล้ว':'ยังไม่ตั้งรหัส'}</span></div></div>
+  $('#users').innerHTML=us.map(u=>`<article class="card"><div class="ucard"><div style="display:flex;align-items:center;gap:12px">${avatarHtml(u.id,u.nick,44)}<div><div class="name">${esc(u.nick)}</div><div class="no">${u.name?esc(u.name):'<span class="hint">ไม่ระบุชื่อ-นามสกุล</span>'} · <span class="hint">${u.pin?'ตั้งรหัสแล้ว':'ยังไม่ตั้งรหัส'}</span></div></div></div>
     <div class="actions" style="margin:0"><button class="btn sm" data-act="edit-user" data-id="${u.id}">แก้ไข</button><button class="btn sm danger" data-act="del-user" data-id="${u.id}">ลบ</button></div></div></article>`).join('');
 }
 function userForm(id){
-  const u=id?S.users.find(x=>x.id===id):null;
+  const u=id?S.users.find(x=>x.id===id):null;const uidForm=u?u.id:uid();
   openModal(`<h2>${u?'แก้ไขผู้ใช้':'เพิ่มผู้ใช้'}</h2>
+  ${avatarPicker(uidForm,u?u.nick:'')}
   <div class="field"><label for="u-nick">ชื่อเล่น (แสดงตอนเข้าใช้งานและใน LINE)</label><input id="u-nick" maxlength="20" value="${esc(u?u.nick:'')}" placeholder="เช่น เอก"></div>
   <div class="field"><label for="u-name">ชื่อ-นามสกุล (ไม่บังคับ)</label><input id="u-name" maxlength="60" value="${esc(u?u.name||'':'')}"></div>
   <div class="field"><label for="u-pin">${u?'ตั้งรหัสใหม่ให้ผู้ใช้ (เว้นว่างถ้าไม่เปลี่ยน)':'รหัสประจำตัว (เว้นว่างให้ผู้ใช้ตั้งเองตอนเข้าครั้งแรก)'}</label><input id="u-pin" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="อย่างน้อย 4 ตัว">
     ${u&&u.pin?'<label class="ck" style="margin-top:6px"><input type="checkbox" id="u-clr"> ล้างรหัสเดิม ให้ผู้ใช้ตั้งรหัสใหม่เองตอนเข้าครั้งถัดไป</label>':''}</div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="u-save">บันทึก</button></div>`,()=>{
+    bindAvatar(uidForm,'#u-nick');
     $('#u-save').onclick=async()=>{
       const nick=$('#u-nick').value.trim();if(!nick)return toast('กรอกชื่อเล่น');
       if(S.users.some(x=>x.id!==(u&&u.id)&&x.nick.toLowerCase()===nick.toLowerCase()))return toast('ชื่อเล่นนี้ถูกใช้แล้ว');
       const pin=$('#u-pin').value.trim();if(pin&&pin.length<4)return toast('รหัสต้องมีอย่างน้อย 4 ตัว');
       await refreshUsers();
       if(S.users.some(x=>x.id!==(u&&u.id)&&x.nick.toLowerCase()===nick.toLowerCase()))return toast('ชื่อเล่นนี้ถูกใช้แล้ว');
-      const rid=u?u.id:uid(),old=u?S.users.find(x=>x.id===u.id)||u:null;
+      const rid=uidForm,old=u?S.users.find(x=>x.id===u.id)||u:null;
       let ph=old?old.pin:undefined;if(pin)ph=await pinHash(pin,rid);else if(old&&$('#u-clr')&&$('#u-clr').checked)ph=undefined;
       const rec={id:rid,nick,name:$('#u-name').value.trim()};if(ph)rec.pin=ph;
       const list=u?S.users.map(x=>x.id===rid?rec:x):[...S.users,rec];
-      try{await saveUsers(list);closeModal();toast('บันทึกผู้ใช้แล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+      try{await saveUsers(list);await applyAvatar(rid);closeModal();toast('บันทึกผู้ใช้แล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
     };
   });
 }
@@ -855,7 +890,7 @@ function confirmUserDel(id){
   const u=S.users.find(x=>x.id===id);if(!u)return;
   openModal(`<h2>ลบผู้ใช้</h2><p style="margin:0">ต้องการลบ <b>${esc(u.nick)}</b> ใช่หรือไม่ ชื่อนี้จะไม่แสดงในหน้าเข้าใช้งานอีก</p>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn danger solid" id="d-ok">ยืนยันลบ</button></div>`,()=>{
-    $('#d-ok').onclick=async()=>{try{await refreshUsers();await saveUsers(S.users.filter(x=>x.id!==id));closeModal();toast('ลบผู้ใช้แล้ว');render()}catch(e){fail('ลบไม่สำเร็จ',e)}};
+    $('#d-ok').onclick=async()=>{try{await refreshUsers();await saveUsers(S.users.filter(x=>x.id!==id));if(S.avatars[id])await saveAvatar(id,null);closeModal();toast('ลบผู้ใช้แล้ว');render()}catch(e){fail('ลบไม่สำเร็จ',e)}};
   });
 }
 function typeForm(id){
