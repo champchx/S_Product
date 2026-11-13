@@ -63,6 +63,43 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .avrow{display:flex;align-items:center;gap:14px}
 .avbtns{display:flex;flex-wrap:wrap;gap:8px}
 .ucard{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.only-print{display:none}
+.ph-logo{height:30px;width:auto;background:#00A8D0;padding:5px 8px;border-radius:6px}
+#print-doc{display:none}
+.fm{font-family:'Noto Sans Thai',system-ui,sans-serif;font-size:10.5px;color:#000;line-height:1.35}
+.fm table{width:100%;border-collapse:collapse;table-layout:fixed}
+.fm td,.fm th{border:1px solid #000;padding:1px 5px;vertical-align:middle;word-break:break-word}
+.fm th{font-weight:700;text-align:center;background:#fff}
+.fm .r{text-align:right}.fm .c{text-align:center}.fm .b{font-weight:700}
+.fm .nb td,.fm .nb{border:0}
+.fm .gap{height:8px}
+.fm-h td{height:18px;white-space:nowrap}.fm-h .lg{width:20%;text-align:center}
+.fm-h .k{font-weight:700;width:11%}.fm-h .t{text-align:center;font-weight:700;font-size:12px;white-space:normal}
+.fm-sec{font-weight:700;margin:6px 0 2px}
+.fm .ln{display:inline-block;min-width:120px;border-bottom:1px dotted #000;text-align:center;padding:0 4px}
+.fm .sig{display:flex;gap:14px;margin-top:14px}.fm .sig>div{flex:1}.fm .sig .ln{display:block;min-width:0;margin-bottom:2px;height:18px}
+@media print{
+  @page{size:A4;margin:12mm}
+  body.print-doc #app,body.print-doc #modal,body.print-doc #print-head{display:none!important}
+  body.print-doc #print-doc{display:block!important}
+  .fm td,.fm th{-webkit-print-color-adjust:exact}
+  :root:root{--bg:#fff;--surface:#fff;--surface2:#f1f3f0;--line:#c9cfc7;--fg:#111;--muted:#444;--accent-soft:#e6efe9;--warn-soft:#f6e7c8;--danger-soft:#f7ddda;--info-soft:#ddeaf5}
+  html,body{background:#fff!important;color:#111!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow:visible!important;height:auto!important}
+  header,#notice,#toast,#login,#dash-head,.btn,.foot,.tabs{display:none!important}
+  .only-print{display:block!important}
+  .ph{border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}
+  .ph-top{display:flex;align-items:center;gap:10px}.ph-top .ph-r{margin-left:auto;text-align:right;font-size:12px;color:#444}
+  .ph h2{margin:10px 0 2px;font-size:20px}.ph .ph-sub{font-size:13px;color:#333;line-height:1.5}
+  .card,.kv,.detail>div,article{break-inside:avoid}
+  h2,h3,.dsec>h2{break-after:avoid}
+  tr{break-inside:avoid}
+  body.print-dash #app>section:not(#dash-view){display:none!important}
+  body.print-dash #modal{display:none!important}
+  body.print-dash #dash-view{display:flex!important}
+  body.print-order #app{display:none!important}
+  body.print-order #modal{position:static!important;display:block!important;background:none!important;padding:0!important;overflow:visible!important;backdrop-filter:none!important}
+  body.print-order #sheet{max-width:none!important;border:0!important;box-shadow:none!important;padding:0!important;max-height:none!important;overflow:visible!important}
+}
 .brand small{display:block;color:var(--muted);font-size:13px}
 .tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px}
 .tab{border:0;background:transparent;padding:8px 16px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:500}
@@ -260,6 +297,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
     <div id="who" class="who"></div>
   </header>
   <div id="notice" class="notice" hidden></div>
+  <div id="print-head" class="only-print"></div>
 
   <section id="plans-view" class="wrap" style="gap:14px" hidden>
     <div id="psummary" class="summary"></div>
@@ -303,6 +341,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
           <input id="d-date" type="date" aria-label="เลือกวันที่" style="width:auto">
           <button class="btn sm" data-act="dnext" aria-label="ถัดไป">›</button>
           <button class="btn sm" data-act="dtoday">วันนี้</button>
+          <button class="btn sm" data-act="print-dash">พิมพ์ / PDF</button>
         </div>
       </div>
       <div class="name" id="d-label"></div>
@@ -332,6 +371,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
   </section>
 </div>
 
+<div id="print-doc"></div>
 <div id="login" class="scrim" style="z-index:40" hidden></div>
 <div id="modal" class="scrim" hidden><div id="sheet" class="sheet" role="dialog" aria-modal="true"></div></div>
 <div id="toast" class="toast" hidden></div>
@@ -342,6 +382,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:2});
+const pcs=v=>v==null?'-':fmt(v*100)+'%';
 const pctOf=(a,t)=>t>0?fmt((+a||0)/t*100)+'%':'-';
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
 const dt=s=>s?new Date(s).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'-';
@@ -355,6 +396,16 @@ const st=o=>o.status==='done'?'done':o.status==='paused'?'paused':'running';
 const mins=(a,b)=>Math.max(0,Math.round((new Date(b)-new Date(a))/60000));
 const hm=m=>{const h=Math.floor(m/60);return (h?h+' ชม. ':'')+(m%60)+' นาที'};
 const lossStr=m=>m?`${hm(m)} (${fmt(Math.round(m/60*100)/100)} ชม.)`:'0 ชม.';
+const LOSS_CATS=['ล้างระบบ','PM(การจัดการ)','ไฟฟ้าดับ','เครื่องจักรเสีย','ตู้เต็ม','รอวัตถุดิบ','อื่นๆ'];
+const CAP_TPH=10; /* กำลังผลิตมาตรฐาน (ตัน/ชม.) ใช้คิดค่า Utilize ตามใบรายงาน: อัตราการเดินเครื่อง ÷ 10 */
+function pauseCat(p){
+  if(p.cat&&LOSS_CATS.includes(p.cat))return p.cat;
+  const t=String(p.reason||'');
+  if(/ไฟ/.test(t))return 'ไฟฟ้าดับ';if(/เครื่อง|ขัดข้อง|เสีย/.test(t))return 'เครื่องจักรเสีย';
+  if(/วัตถุดิบ|รอ/.test(t))return 'รอวัตถุดิบ';if(/ล้าง|สะอาด/.test(t))return 'ล้างระบบ';
+  if(/ตู้|ถัง/.test(t))return 'ตู้เต็ม';if(/PM|บำรุง/i.test(t))return 'PM(การจัดการ)';return 'อื่นๆ';
+}
+const pauseLabel=p=>p.cat?(p.cat+(p.reason?' – '+p.reason:'')):(p.reason||'');
 function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
 function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
 const isAdmin=()=>S.role==='admin';
@@ -375,7 +426,11 @@ const inTanksOf=o=>o.inTanks&&o.inTanks.length?o.inTanks:[...new Set(inputsOf(o)
 function mx(o){
   const done=st(o)==='done',total=done&&o.startAt?mins(o.startAt,o.endAt):0,loss=lossMin(o),net=Math.max(0,total-loss);
   const inKg=(o.inputs||[]).reduce((a,x)=>a+(+x.kg||0),0),byKg=(o.byproducts||[]).reduce((a,x)=>a+(+x.kg||0),0),hasIn=inKg>0;
-  return{done,total,loss,net,inKg,byKg,hasIn,outKg:done&&hasIn?inKg-byKg:null,rate:done&&hasIn&&net>0?(inKg/1000)/(net/60):null};
+  const rep=o.rep||{},ncr=+rep.ncr||0,outKg=done&&hasIn?inKg-byKg:null,rate=done&&hasIn&&net>0?(inKg/1000)/(net/60):null;
+  /* OEE ตามใบรายงาน: ค่าของดี × ค่าความพร้อม × ค่า Utilize */
+  const good=outKg>0?Math.max(0,(outKg-ncr)/outKg):null,avail=done&&total>0?net/total:null,util=rate!=null?rate/CAP_TPH:null;
+  const oee=good!=null&&avail!=null&&util!=null?good*avail*util:null;
+  return{done,total,loss,net,inKg,byKg,hasIn,ncr,outKg,rate,good,avail,util,oee};
 }
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
@@ -525,6 +580,7 @@ function showLogin(){
   }else staffPick=`<button class="btn primary" style="padding:14px" data-act="login-staff">เข้าใช้งานในฐานะพนักงาน</button>`;
   L.innerHTML=`<div class="sheet" style="max-width:420px"><div><img class="logo big" src="logo-white.png" alt="BSCM"><h2>ระบบจัดการผลิตข้าว</h2><div class="hint">เลือกผู้ใช้งาน</div></div>
   ${staffPick}
+  <label class="ck" style="margin:2px 0"><input type="checkbox" id="l-rem" checked> จำรหัสไว้ในเครื่องนี้ (ครั้งต่อไปเข้าได้เลย)</label>
   <div class="field"><label for="l-pw">ธุรการ ใส่รหัสผ่าน</label><input id="l-pw" type="password" autocomplete="off"></div>
   <button class="btn" data-act="login-admin" style="padding:12px">เข้าใช้งานในฐานะธุรการ</button></div>`;
   L.hidden=false;
@@ -546,6 +602,7 @@ async function loginUser(id){
     if(!pin)return toast('ใส่รหัสของคุณ');
     if(await pinHash(pin,id)!==u.pin){toast('รหัสไม่ถูกต้อง');$('#l-upin').value='';return}
   }
+  setRemember(remOn()?{role:'staff',uid:id,h:S.users.find(x=>x.id===id).pin}:null);
   S.loginUser=null;setRole('staff',u.nick,u.id);
 }
 function accountForm(){
@@ -572,10 +629,20 @@ function accountForm(){
         if(nw!==$('#a-new2').value)return toast('รหัสใหม่ทั้งสองช่องไม่ตรงกัน');
         pin=await pinHash(nw,cur.id);
       }
-      try{await saveUsers(S.users.map(x=>x.id===cur.id?{...x,nick,pin}:x));await applyAvatar(cur.id);S.nick=nick;try{sessionStorage.setItem('rice-nick',nick)}catch(e){}closeModal();toast('บันทึกบัญชีแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+      try{await saveUsers(S.users.map(x=>x.id===cur.id?{...x,nick,pin}:x));await applyAvatar(cur.id);{const r=getRemember();if(r&&r.role==='staff'&&r.uid===cur.id)setRemember({...r,h:pin})}S.nick=nick;try{sessionStorage.setItem('rice-nick',nick)}catch(e){}closeModal();toast('บันทึกบัญชีแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
     };
   });
 }
+const REM_KEY=LS+'-remember';
+function getRemember(){try{return JSON.parse(localStorage.getItem(REM_KEY)||'null')}catch(e){return null}}
+function setRemember(v){try{v?localStorage.setItem(REM_KEY,JSON.stringify(v)):localStorage.removeItem(REM_KEY)}catch(e){}}
+function autoLogin(){
+  const r=getRemember();if(!r||S.role)return false;
+  if(r.role==='admin'&&r.h===(S.adminHash||'default')){setRole('admin');return true}
+  if(r.role==='staff'){const u=S.users.find(x=>x.id===r.uid);if(u&&u.pin&&u.pin===r.h){setRole('staff',u.nick,u.id);return true}}
+  return false;
+}
+const remOn=()=>{const e=$('#l-rem');return !e||e.checked};
 function setRole(r,nick,uid){S.role=r;S.nick=r==='staff'?(nick||''):'';S.uid=r==='staff'?(uid||''):'';S.loginUser=null;try{r?sessionStorage.setItem('rice-role',r):sessionStorage.removeItem('rice-role');S.nick?sessionStorage.setItem('rice-nick',S.nick):sessionStorage.removeItem('rice-nick');S.uid?sessionStorage.setItem('rice-uid',S.uid):sessionStorage.removeItem('rice-uid')}catch(e){}
   if(r){$('#login').hidden=true;$('#login').innerHTML=''}render()}
 async function loginAdmin(){
@@ -583,6 +650,7 @@ async function loginAdmin(){
   if(SHEET&&!S.loaded){try{await pull()}catch(e){return toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้')}}
   const h=await sha(v),want=S.adminHash||await sha('1234');
   if(h!==want){toast('รหัสผ่านไม่ถูกต้อง');$('#l-pw').value='';return}
+  setRemember(remOn()?{role:'admin',h:S.adminHash||'default'}:null);
   setRole('admin');
 }
 function pwForm(){
@@ -594,7 +662,7 @@ function pwForm(){
       const a=$('#w1').value,b=$('#w2').value;
       if(a.length<4)return toast('รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร');
       if(a!==b)return toast('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
-      try{await saveAdminHash(await sha(a));closeModal();toast('เปลี่ยนรหัสผ่านแล้ว')}catch(e){toast('บันทึกรหัสผ่านไม่สำเร็จ')}
+      try{const nh=await sha(a);await saveAdminHash(nh);{const r=getRemember();if(r&&r.role==='admin')setRemember({role:'admin',h:S.adminHash||nh})}closeModal();toast('เปลี่ยนรหัสผ่านแล้ว')}catch(e){toast('บันทึกรหัสผ่านไม่สำเร็จ')}
     };
   });
 }
@@ -605,6 +673,7 @@ function renderWho(){
 /* ---------- render ---------- */
 
 function render(){
+  if(!S.role&&autoLogin())return;
   renderWho();
   if(!S.role){$('#app').hidden=true;if($('#login').hidden)showLogin();return}
   $('#app').hidden=false;
@@ -629,6 +698,24 @@ function orderRow(o){
     <span class="ot">${fmt(o.qty)} กก. · เริ่ม ${dts(o.startAt)}${loss?` · สูญเสีย ${fmt(Math.round(loss/60*100)/100)} ชม.`:''}</span>
     <span class="chev" aria-hidden="true">›</span></button>`;
 }
+function oeeBlock(m){
+  if(m.oee==null)return '';
+  return `<h3 class="lbl" style="margin:10px 0 6px">การวัดประสิทธิภาพโดยรวม (OEE)</h3>
+    <div class="kv"><span>ค่าของดี <span class="hint">(ข้าวที่ผลิตได้ − ข้าวติด NCR) ÷ ข้าวที่ผลิตได้</span></span><b>${pcs(m.good)}</b></div>
+    <div class="kv"><span>ค่าความพร้อม <span class="hint">เวลาผลิตจริง ÷ เวลาทั้งหมด</span></span><b>${pcs(m.avail)}</b></div>
+    <div class="kv"><span>ค่า Utilize <span class="hint">ตัน/ชม. ÷ ${CAP_TPH}</span></span><b>${pcs(m.util)}</b></div>
+    <div class="kv"><span><b>ค่า OEE</b></span><b>${pcs(m.oee)}</b></div>`;
+}
+function repBlock(o){
+  const r=o.rep||{};if(!o.docNo&&!r.machineNo&&!r.elecFrom&&!r.elecTo&&!r.quality&&!r.ncr&&!o.reportBy)return '';
+  const el=(r.elecFrom!=null&&r.elecFrom!==''&&r.elecTo!=null&&r.elecTo!=='')?(+r.elecTo)-(+r.elecFrom):null;
+  return `<div><h3 class="lbl" style="margin-bottom:6px">ข้อมูลใบรายงาน</h3>
+    ${r.machineNo?`<div class="kv"><span>เครื่องจักรที่</span><b>${esc(r.machineNo)}</b></div>`:''}
+    ${el!=null?`<div class="kv"><span>ค่าไฟฟ้า ${fmt(r.elecFrom)} → ${fmt(r.elecTo)}</span><b>${fmt(el)} หน่วย</b></div>`:''}
+    ${r.quality?`<div class="kv"><span>คุณภาพการขัดสี ระดับ</span><b>${esc(r.quality)}</b></div>`:''}
+    ${r.ncr?`<div class="kv"><span>ข้าวติด NCR</span><b>${fmt(r.ncr)} กก.</b></div>`:''}
+    ${o.reportBy?`<div class="kv"><span>ผู้รายงาน</span><b>${esc(o.reportBy)}</b></div>`:''}</div>`;
+}
 function orderDetail(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
   const s=st(o),done=s==='done',paused=s==='paused',code=codeOf(o),pauses=o.pauses||[];
@@ -636,7 +723,7 @@ function orderDetail(id){
   const loss=lossMin(o),endRef=done?o.endAt:nowLocal();
   const total=o.startAt?mins(o.startAt,endRef):0;
   const open=pauses.find(p=>!p.to);
-  const pl=pauses.map((p,i)=>`<div class="kv"><span>${esc(p.reason||'ไม่ระบุเหตุผล')}<br><span class="hint">${dt(p.from)} – ${p.to?dt(p.to):'ยังหยุดอยู่'}</span></span><span><b>${hm(mins(p.from,p.to||endRef))}</b>${isAdmin()?` <button class="x" style="height:24px;font-size:15px" data-act="del-pause" data-id="${o.id}" data-i="${i}" aria-label="ลบรายการหยุด">×</button>`:''}</span></div>`).join('');
+  const pl=pauses.map((p,i)=>`<div class="kv"><span>${esc(pauseLabel(p)||'ไม่ระบุเหตุผล')}<br><span class="hint">${dt(p.from)} – ${p.to?dt(p.to):'ยังหยุดอยู่'}</span></span><span><b>${hm(mins(p.from,p.to||endRef))}</b>${isAdmin()?` <button class="x" style="height:24px;font-size:15px" data-act="del-pause" data-id="${o.id}" data-i="${i}" aria-label="ลบรายการหยุด">×</button>`:''}</span></div>`).join('');
   const bp=o.byproducts||[];
   const m=mx(o);
   const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก. · '+pctOf(r.kg,m.inKg):'—'}</b></div>`).join('');
@@ -646,7 +733,8 @@ function orderDetail(id){
     ${m.hasIn?`<div><h3 class="lbl" style="margin-bottom:6px">ผลคำนวณ</h3>
       <div class="kv"><span>น้ำหนัก input รวม</span><b>${fmt(m.inKg)} กก.</b></div>
       <div class="kv"><span>อัตราการผลิต (input ÷ เวลาผลิตจริง)</span><b>${m.rate!=null?fmt(m.rate)+' ตัน/ชม.':'คำนวณเมื่อผลิตเสร็จ'}</b></div>
-      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก. · ${pctOf(m.byKg,m.inKg)}</b></div><div class="kv"><span>ข้าวที่ผลิตได้ </span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน) · ${pctOf(m.outKg,m.inKg)}</b></div><div class="hint" style="margin-top:2px">เปอร์เซ็นต์คิดจากน้ำหนัก input รวม = 100%</div>`:''}</div>`:''}`;
+      ${m.done?`<div class="kv"><span>ผลพลอยได้รวม</span><b>${fmt(m.byKg)} กก. · ${pctOf(m.byKg,m.inKg)}</b></div><div class="kv"><span>ข้าวที่ผลิตได้ </span><b>${fmt(m.outKg)} กก. (${tn(m.outKg)} ตัน) · ${pctOf(m.outKg,m.inKg)}</b></div><div class="hint" style="margin-top:2px">เปอร์เซ็นต์คิดจากน้ำหนัก input รวม = 100%</div>`:''}
+      ${m.done?oeeBlock(m):''}</div>`:''}`;
   const acts=[];
   if(!done){acts.push(paused?`<button class="btn primary" data-act="resume" data-id="${o.id}">เริ่มผลิตต่อ</button>`:`<button class="btn" data-act="pause" data-id="${o.id}">หยุดชั่วคราว</button>`);
     acts.push(`<button class="btn ${paused?'':'primary'}" data-act="record" data-id="${o.id}">ผลิตเสร็จ / บันทึกผล</button>`)}
@@ -655,10 +743,11 @@ function orderDetail(id){
     acts.push(`<button class="btn" data-act="weight" data-id="${o.id}">ใส่น้ำหนัก input</button>`,`<button class="btn" data-act="edit-order" data-id="${o.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-order" data-id="${o.id}">ลบ</button>`)}
   openModal(`<div class="row"><div><div class="no">${esc(o.no)} <span class="pill ${s}">${LABEL[s]}</span></div>
       <div class="name">${esc(o.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div>
-      <button class="btn sm" data-act="close">ปิด</button></div>
+      <div class="actions" style="margin:0"><button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์ใบรายงาน</button><button class="btn sm" data-act="close">ปิด</button></div></div>
     <div class="meta"><span>จำนวน <b>${fmt(o.qty)} กก.</b></span><span>เริ่มผลิต <b>${dt(o.startAt)}</b></span>${done?`<span>เสร็จ <b>${dt(o.endAt)}</b></span>`:''}${o.due?`<span>กำหนดเสร็จ <b>${dd(o.due)}</b></span>`:''}</div>
+    ${o.docNo?`<div class="hint">เลขที่: <b>${esc(o.docNo)}</b></div>`:''}
     ${o.note?`<div class="hint">หมายเหตุ: ${esc(o.note)}</div>`:''}
-    ${paused&&open?`<div class="notice">หยุดผลิตตั้งแต่ ${dt(open.from)} (${hm(mins(open.from,endRef))}) · ${esc(open.reason||'ไม่ระบุเหตุผล')}</div>`:''}
+    ${paused&&open?`<div class="notice">หยุดผลิตตั้งแต่ ${dt(open.from)} (${hm(mins(open.from,endRef))}) · ${esc(pauseLabel(open)||'ไม่ระบุเหตุผล')}</div>`:''}
     ${o.startAt?`<div><h3 class="lbl" style="margin-bottom:6px">เวลา</h3>
       <div class="kv"><span>${done?'ใช้เวลาทั้งหมด':'ผ่านมาแล้ว'}</span><b>${hm(total)}</b></div>
       <div class="kv"><span>เวลาสูญเสียจากการหยุด</span><b style="color:${loss?'var(--warn)':'inherit'}">${lossStr(loss)}</b></div>
@@ -667,6 +756,7 @@ function orderDetail(id){
     <div class="detail">
       <div><h3>การหยุดผลิต (${pauses.length} ครั้ง)</h3>${pl||'<span class="hint">ยังไม่มีการหยุด</span>'}</div>
       <div><h3>สูตรผสม (คำนวณจาก ${fmt(o.qty)} กก.)</h3>${ing}</div>
+      ${repBlock(o)}
       ${done?`<div><h3>ผลพลอยได้</h3>${bp.length?'<div class="tags">'+bp.map(b=>`<span class="tag">${esc(b.name)} ${fmt(b.kg)} กก.${m.hasIn?` · ${pctOf(b.kg,m.inKg)}`:''}${b.jumbo?` <span class="hint">(${b.jumbo} จัมโบ้${b.rem?` + เศษ ${fmt(b.rem)}`:''})</span>`:''}</span>`).join('')+'</div>':'<span class="hint">ไม่มี</span>'}${o.resultNote?`<p class="hint" style="margin:8px 0 0">${esc(o.resultNote)}</p>`:''}</div>`:''}
     </div>
     ${acts.length?`<div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`:''}`);
@@ -719,7 +809,8 @@ function orderForm(id,planId){
   <div id="f-prev"></div>
   <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${o&&inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${o&&(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
-  <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note:''))}</textarea></div>
+  <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):''))}" placeholder="เช่น 69-4-11017"></div>
+  <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note||'':''))}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
     const prev=()=>{
       const t=S.types.find(x=>x.id===$('#f-type').value),q=parseFloat($('#f-qty').value)||0;
@@ -735,7 +826,7 @@ function orderForm(id,planId){
       const inputs=o&&o.inputs?o.inputs:[];
       const inTanks=[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank);
       const outTanks=[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out);
-      const doc={...(o||{}),...(pl?{planId:pl.id}:{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,inputs,inTanks,outTanks,qty,startAt,due:$('#f-due').value,note:$('#f-note').value.trim(),status:o?o.status:'running',pauses:o?(o.pauses||[]):[],createdAt:o?o.createdAt:Date.now()};
+      const doc={...(o||{}),...(pl?{planId:pl.id}:{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,inputs,inTanks,outTanks,qty,startAt,due:$('#f-due').value,docNo:$('#f-doc').value.trim(),note:$('#f-note').value.trim(),status:o?o.status:'running',pauses:o?(o.pauses||[]):[],createdAt:o?o.createdAt:Date.now()};
       delete doc.id;
       const oid=o?o.id:uid(),ops=[['orders',oid,doc]];
       if(pl){const pd={...pl,status:'started',orderId:oid};delete pd.id;ops.push(['plans',pl.id,pd])}
@@ -769,21 +860,23 @@ function pauseForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
   openModal(`<div><h2>หยุดผลิตชั่วคราว</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
   <div class="field"><label for="p-from">เวลาที่หยุด</label><input id="p-from" type="datetime-local" value="${nowLocal()}"></div>
-  <div class="field"><label for="p-why">เหตุผลที่หยุด</label><input id="p-why" list="dl-why" placeholder="เลือกหรือพิมพ์เหตุผล"></div>
+  <div class="field"><label for="p-cat">ประเภทการสูญเสียเวลา</label><select id="p-cat"><option value="">เลือกประเภท</option>${LOSS_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+  <div class="field"><label for="p-why">รายละเอียด / หมายเหตุ</label><input id="p-why" placeholder="เช่น 07:55–10:00 ถังบรรจุเต็มรอว่าง"></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">บันทึกการหยุด</button></div>`,()=>{
     $('#p-save').onclick=async()=>{
-      const from=$('#p-from').value,why=$('#p-why').value.trim();
+      const from=$('#p-from').value,why=$('#p-why').value.trim(),cat=$('#p-cat').value;
       if(!from)return toast('ใส่เวลาที่หยุด');
-      if(!why)return toast('ใส่เหตุผลที่หยุด');
+      if(!cat)return toast('เลือกประเภทการสูญเสียเวลา');
+      if(cat==='อื่นๆ'&&!why)return toast('ประเภทอื่นๆ ใส่รายละเอียดด้วย');
       if(o.startAt&&new Date(from)<new Date(o.startAt))return toast('เวลาหยุดต้องไม่ก่อนเวลาเริ่มผลิต');
-      if(await upd(o,{status:'paused',pauses:[...(o.pauses||[]),{from,reason:why}]})){closeModal();toast('บันทึกการหยุดผลิตแล้ว')}
+      if(await upd(o,{status:'paused',pauses:[...(o.pauses||[]),{from,cat,reason:why}]})){closeModal();toast('บันทึกการหยุดผลิตแล้ว')}
     };
   });
 }
 function resumeForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
   const ps=o.pauses||[],p=ps[ps.length-1];if(!p||p.to){upd(o,{status:'running'});return}
-  openModal(`<div><h2>เริ่มผลิตต่อ</h2><div class="hint">หยุดตั้งแต่ ${dt(p.from)} · ${esc(p.reason)}</div></div>
+  openModal(`<div><h2>เริ่มผลิตต่อ</h2><div class="hint">หยุดตั้งแต่ ${dt(p.from)} · ${esc(pauseLabel(p))}</div></div>
   <div class="field"><label for="u-to">เวลาที่เริ่มผลิตต่อ</label><input id="u-to" type="datetime-local" value="${nowLocal()}"></div>
   <div class="hint" id="u-dur"></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="u-save">เริ่มผลิตต่อ</button></div>`,()=>{
@@ -826,6 +919,12 @@ function resultForm(id){
     <div>${BP.map((n,i)=>bpRowHtml(n,i,cur)).join('')}</div>
     <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำ ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
   ${isAdmin()?'<div class="notice" id="r-calc" hidden></div>':''}
+  <div class="field"><span class="lbl">ข้อมูลใบรายงาน (ไม่บังคับ)</span>
+    <div class="grid2"><div><label for="r-mc" class="hint">เครื่องจักรที่</label><input id="r-mc" maxlength="10" value="${esc((o.rep||{}).machineNo||'')}"></div>
+    <div><label for="r-q" class="hint">คุณภาพการขัดสี ระดับ</label><input id="r-q" maxlength="20" value="${esc((o.rep||{}).quality||'')}"></div></div>
+    <div class="grid2"><div><label for="r-e1" class="hint">ค่าไฟฟ้า หน่วยเริ่มต้น</label><input id="r-e1" type="number" step="any" inputmode="decimal" value="${(o.rep||{}).elecFrom??''}"></div>
+    <div><label for="r-e2" class="hint">หน่วยสิ้นสุด</label><input id="r-e2" type="number" step="any" inputmode="decimal" value="${(o.rep||{}).elecTo??''}"></div></div>
+    <div><label for="r-ncr" class="hint">ข้าวติด NCR (กก.)</label><input id="r-ncr" type="number" min="0" step="any" inputmode="decimal" value="${(o.rep||{}).ncr??''}"></div></div>
   <div class="field"><label for="r-note">หมายเหตุ</label><textarea id="r-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="r-save">บันทึกผลการผลิต</button></div>`,()=>{
     const d=()=>{const a=$('#r-start').value,b=$('#r-end').value;if(!a||!b){$('#r-dur').textContent='';return}
@@ -846,13 +945,125 @@ function resultForm(id){
       syncJumbo();
       const byproducts=[...document.querySelectorAll('.bpr')].map(r=>{const bp=r.querySelector('[data-bp]'),n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0;return{name:bp.dataset.bp,kg:parseFloat(bp.value)||0,...(n>0?{jumbo:n}:{}),...(m>0?{rem:m}:{})}}).filter(x=>x.kg>0);
       const pauses=(o.pauses||[]).map(p=>p.to?p:{...p,to:b});
-      if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),...(isAdmin()?{inputs:readWeights()}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
+      if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),rep:{machineNo:$('#r-mc').value.trim(),quality:$('#r-q').value.trim(),elecFrom:$('#r-e1').value===''?'':parseFloat($('#r-e1').value),elecTo:$('#r-e2').value===''?'':parseFloat($('#r-e2').value),ncr:parseFloat($('#r-ncr').value)||0},reportBy:o.reportBy||(isAdmin()?'ธุรการ':(S.nick||'พนักงาน')),...(isAdmin()?{inputs:readWeights()}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
     };
   });
 }
 
 /* ---------- rice type + formula ---------- */
 function fRow(x){return `<div class="line fr"><input list="dl-ing" placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+/* ---------- print / PDF ---------- */
+function printHeadHtml(title,sub){
+  const who=isAdmin()?'ธุรการ':(S.nick||'พนักงาน'),t=new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+  return `<div class="ph"><div class="ph-top"><img class="ph-logo" src="logo-white.png" alt=""><div><b>ระบบจัดการผลิตข้าว</b><br><span style="font-size:12px;color:#444">BSCM DEMO By Champ</span></div><div class="ph-r">พิมพ์เมื่อ ${esc(t)}<br>โดย ${esc(who)}</div></div><h2>${title}</h2><div class="ph-sub">${sub||''}</div></div>`;
+}
+function runPrint(cls,title){
+  const old=document.title;document.title=title;document.body.classList.add(cls);
+  let ended=false;const mq=window.matchMedia('print');
+  const end=()=>{if(ended)return;ended=true;document.body.classList.remove(cls);document.title=old;window.removeEventListener('afterprint',end);try{mq.removeEventListener('change',onq)}catch(e){}};
+  const onq=e=>{if(!e.matches)end()};
+  window.addEventListener('afterprint',end);try{mq.addEventListener('change',onq)}catch(e){}
+  setTimeout(()=>{try{window.print()}catch(e){end();toast('พิมพ์ไม่ได้ในเบราว์เซอร์นี้')}},80);
+}
+function printDash(){
+  const D=S.dash,[a,b]=rangeOf(D.kind,D.ref),lab=labelOf(D.kind,a,b);
+  const tp=D.type?((S.types.find(t=>t.id===D.type)||{}).name||''):'ทุกชนิดข้าว';
+  const sl={all:'ทุกสถานะ',running:'กำลังผลิต',paused:'หยุดชั่วคราว',done:'ผลิตเสร็จ'}[D.status]||'';
+  $('#print-head').innerHTML=printHeadHtml('สรุปการผลิต',`${esc(lab)}<br>ชนิดข้าว: ${esc(tp)} · สถานะ: ${sl}${D.q?' · ค้นหา: '+esc(D.q):''}`);
+  runPrint('print-dash','สรุปการผลิต '+lab);
+}
+const fmDT=v=>v?new Date(v).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+const fmD=v=>v?new Date(v).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+function fmHead(title,docno,eff,rev){
+  return `<table class="fm-h"><tr><td class="lg" rowspan="3"><img class="ph-logo" src="logo-white.png" alt=""></td><td class="k">ITEM</td><td class="t">${title}</td><td class="k">Eff.Date</td><td>${eff}</td></tr>
+  <tr><td class="k">DOC.No.</td><td class="t">${docno}</td><td class="k">REV.</td><td>${rev}</td></tr>
+  <tr><td class="k">REF.</td><td class="t">แผนการผลิตประจำสัปดาห์</td><td class="k">PAGE</td><td>1/1</td></tr></table>`;
+}
+function padRows(rows,n,cols){const a=[...rows];while(a.length<n)a.push(`<tr>${'<td>&nbsp;</td>'.repeat(cols)}</tr>`);return a.join('')}
+function reportDocHtml(o){
+  const m=mx(o),r=o.rep||{},code=codeOf(o);
+  const fcode=nm=>{const f=(o.formula||[]).find(x=>x.name===nm);return f&&f.code?f.code:''};
+  const ins=(o.inputs||[]).filter(x=>+x.kg>0);
+  const inRows=ins.map(x=>`<tr><td>${esc(fcode(x.name))}</td><td>${esc(x.name)}</td><td></td><td class="r">${fmt(x.kg)}</td><td class="r">${pctOf(x.kg,m.inKg)}</td><td class="c">${esc(x.tank||'')}</td><td></td><td></td><td></td></tr>`);
+  const outRows=[];
+  if(m.done&&m.hasIn)outRows.push(`<tr><td>${esc(code)}</td><td>${esc(o.typeName)}</td><td></td><td></td><td class="r">${fmt(m.outKg)}</td><td class="r">${pctOf(m.outKg,m.inKg)}</td><td class="c">${esc((o.outTanks||[]).join(', '))}</td></tr>`);
+  (o.byproducts||[]).forEach(b=>outRows.push(`<tr><td></td><td>${esc(b.name)}${b.jumbo?` <span style="font-size:9px">(${b.jumbo} จัมโบ้${b.rem?' + เศษ '+fmt(b.rem):''})</span>`:''}</td><td></td><td></td><td class="r">${fmt(b.kg)}</td><td class="r">${m.hasIn?pctOf(b.kg,m.inKg):''}</td><td></td></tr>`));
+  const el=(r.elecFrom!=null&&r.elecFrom!==''&&r.elecTo!=null&&r.elecTo!=='')?(+r.elecTo)-(+r.elecFrom):null;
+  const ps=o.pauses||[],lossRows=LOSS_CATS.map(c=>{
+    const arr=ps.filter(p=>pauseCat(p)===c),mm=arr.reduce((a,p)=>a+mins(p.from,p.to||o.endAt||nowLocal()),0);
+    const from=arr.length?arr.map(p=>p.from).sort()[0]:'',to=arr.length?arr.map(p=>p.to||o.endAt||'').sort().pop():'';
+    return `<tr><td class="b">- ${c}</td><td class="c">${from?fmDT(from).slice(-5)+'':''}</td><td class="c">${to?fmDT(to).slice(-5):''}</td><td class="r">${mm}</td><td>${esc(arr.map(p=>p.reason).filter(Boolean).join(' / '))}</td></tr>`}).join('');
+  const dep=m.done&&m.total>0;
+  return `<div class="fm">${fmHead('ใบรายงานการปรับปรุงคุณภาพ','SPPRO-FM004','27/08/69','01')}
+  <div style="text-align:right;font-weight:700;margin:4px 0 0">เลขที่ ${esc(o.docNo||'')}</div>
+  <div style="text-align:right;font-weight:700">${esc(o.no)}</div>
+  <div style="margin:2px 0">☐ ข้าวทั่วไป &nbsp;&nbsp; ☐ ข้าวอื่นๆ <span class="ln">&nbsp;</span> &nbsp; Lot.No <span class="ln" style="min-width:140px">&nbsp;</span></div>
+  <div style="margin:2px 0 4px">ค่าไฟฟ้าจาก <span class="ln">${r.elecFrom!==''&&r.elecFrom!=null?fmt(r.elecFrom):''}</span> หน่วย ถึง <span class="ln">${r.elecTo!==''&&r.elecTo!=null?fmt(r.elecTo):''}</span> หน่วย รวม <span class="ln">${el!=null?fmt(el):''}</span> หน่วย</div>
+  <div style="display:flex;gap:14px;align-items:flex-start">
+  <table style="width:52%"><tr><td class="b" style="width:50%">เครื่องจักรที่</td><td class="c">${esc(r.machineNo||'')}</td></tr>
+  <tr><td class="b">อัตราการเดินเครื่องจักร (ตัน/ชม.)</td><td class="c">${m.rate!=null?fmt(m.rate):''}</td></tr>
+  <tr><td class="b">วัน เดือน ปี เวลาเริ่มต้น</td><td class="c">${fmDT(o.startAt)}</td></tr>
+  <tr><td class="b">วัน เดือน ปี เวลาสิ้นสุด</td><td class="c">${m.done?fmDT(o.endAt):''}</td></tr>
+  <tr><td class="b">ใช้เวลา (นาที)</td><td class="c">${dep?m.total:''}</td></tr>
+  <tr><td class="b">ใช้เวลา (ชั่วโมง)</td><td class="c">${dep?fmt(m.total/60):''}</td></tr></table>
+  <table style="width:48%"><tr><th colspan="2">การวัดประสิทธิภาพโดยรวม แผนกปรับปรุงคุณภาพ</th></tr>
+  <tr><td class="b">ค่าของดี</td><td class="r">${pcs(m.good)}</td></tr><tr><td class="b">ค่าความพร้อม</td><td class="r">${pcs(m.avail)}</td></tr>
+  <tr><td class="b">ค่า Utilize</td><td class="r">${pcs(m.util)}</td></tr><tr><td class="b">ค่า OEE</td><td class="r">${pcs(m.oee)}</td></tr></table></div>
+  <div class="fm-sec">วัตถุดิบ (IN PUT) ดึงมาจากการจ่ายวัตถุดิบคลังสินค้า</div>
+  <table><colgroup><col style="width:13%"><col style="width:20%"><col style="width:14%"><col style="width:11%"><col style="width:8%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:8%"></colgroup>
+  <tr><th>รหัสข้าว</th><th>ชื่อวัตถุดิบ</th><th>สถานที่มา</th><th>จำนวน กก.</th><th>%</th><th>ตู้/ถัง</th><th>จดครั้งก่อน</th><th>จดครั้งหลัง</th><th>ตู้/ถัง</th></tr>
+  ${padRows(inRows,5,9)}
+  <tr><td colspan="3" class="b">เพื่อทำออเดอร์ ${esc(o.typeName)}</td><td class="r b">${m.hasIn?fmt(m.inKg):''}</td><td class="r b">${m.hasIn?'100%':''}</td><td></td><td></td><td></td><td></td></tr></table>
+  <div class="fm-sec">ผลผลิตที่ออก (OUT PUT)</div>
+  <table><colgroup><col style="width:14%"><col style="width:30%"><col style="width:13%"><col style="width:13%"><col style="width:12%"><col style="width:8%"><col style="width:10%"></colgroup>
+  <tr><th>รหัสข้าว</th><th>ชื่อ</th><th>จดครั้งก่อน</th><th>จดครั้งหลัง</th><th>จำนวน กก.</th><th>%</th><th>ตู้/ถัง</th></tr>
+  ${padRows(outRows,6,7)}
+  <tr><td colspan="4" class="b">หมายเหตุ : ${esc(o.resultNote||'')}</td><td class="r b">${m.hasIn&&m.done?fmt(m.inKg):''}</td><td class="r b">${m.hasIn&&m.done?'100%':''}</td><td></td></tr></table>
+  <div class="fm-sec">คุณภาพการขัดสี ระดับ ${esc(r.quality||'')}</div>
+  <div class="fm-sec" style="margin-top:2px">วัน เวลาการสูญเสียต่างๆ</div>
+  <table><colgroup><col style="width:22%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:42%"></colgroup>
+  <tr><th>รายการ</th><th>เวลาเริ่มต้น</th><th>เวลาสิ้นสุด</th><th>ผลรวม (นาที)</th><th>หมายเหตุ</th></tr>${lossRows}
+  <tr><td class="b">- รวมเวลาที่สูญเสีย</td><td></td><td></td><td class="r b">${m.loss}</td><td></td></tr>
+  <tr><td class="b">- เวลารับภาระ (นาที)</td><td></td><td></td><td class="r b">${dep?m.net:''}</td><td></td></tr>
+  <tr><td class="b">- เวลารับภาระ (ชม.)</td><td></td><td></td><td class="r b">${dep?fmt(m.net/60):''}</td><td></td></tr>
+  <tr><td class="b">- ข้าวติด NCR (กก.)</td><td></td><td></td><td class="r b">${r.ncr?fmt(r.ncr):''}</td><td></td></tr></table>
+  <div class="sig"><div><div class="b">ผู้รายงาน</div><span class="ln">${esc(o.reportBy||'')}</span><div class="b">(พนักงานคุมเครื่อง)</div><div class="b">วันที่ ${m.done?fmD(o.endAt):''}</div></div>
+  <div><div class="b">ผู้ตรวจสอบ</div><span class="ln">&nbsp;</span><div class="b">(หัวหน้าหน่วย)</div><div class="b">วันที่</div></div>
+  <div><div class="b">ผู้อนุมัติ</div><span class="ln">&nbsp;</span><div class="b">(แผนกปรับปรุงคุณภาพ)</div><div class="b">วันที่</div></div></div></div>`;
+}
+const MACHINES=['เครื่องทำความสะอาด','เครื่องชั่งน้ำหนัก IN PUT','เครื่องแยกหิน','เครื่องขัดมัน ชุดที่ 1','เครื่องขัดมัน ชุดที่ 2','เครื่องขัดมัน ชุดที่ 3','เครื่องคัดแยกรำก้อน','เครื่องยิงสี ชุดที่ 1','เครื่องยิงสี ชุดที่ 2','ตะแกรงเหลี่ยม DUO','ตะแกรงเหลี่ยม 527','ตะแกรงกลม NO.6','ตะแกลงกลม NO. 4.25','ตะแกรงกลม NO. 4.75','ตะแกรงกลม NO. 5.25','เครื่องคัดเมล็ดอ้วน-ผอม','เครื่องชั่งน้ำหนัก OUT PUT','เครื่องตรวจจับโลหะ'];
+function reqDocHtml(p){
+  const rows=(p.formula||[]).map(x=>`<tr><td>${esc(x.code||'')}</td><td>${esc(x.name)}</td><td class="r">${fmt(p.qty*x.pct/100)}</td><td class="r">${fmt(x.pct)}%</td><td></td></tr>`);
+  return `<div class="fm">${fmHead('ใบสั่งงานปรับปรุงคุณภาพ - ใบเบิก','NPRO-FM052','10/05/64','05')}
+  <div style="text-align:right;font-weight:700;margin:4px 0 0">เลขที่ ${esc(p.docNo||'')}</div>
+  <div style="margin:4px 0">เลขที่ JOB/ Lot. การปรับปรุง <span class="ln" style="min-width:200px">${esc(p.no)}</span> &nbsp; วัน เดือน ปี เวลาที่ออกเอกสาร <span class="ln" style="min-width:150px">${fmDT(p.createdAt)}</span></div>
+  <div style="margin:2px 0">วัตถุประสงค์การใช้งาน ☐ ข้าวทั่วไป &nbsp; ☐ ข้าว Organic <span class="ln">&nbsp;</span> &nbsp; ☐ ข้าวอื่นๆ <span class="ln">&nbsp;</span></div>
+  <div style="margin:2px 0">มาตรฐาน ☐ IFOAM ☐ EU ☐ COR-NOP (US-CANADA equivalence) ☐ USDA &nbsp; รับรองโดย ACT (TH-BIO-121) Lot.No <span class="ln">&nbsp;</span></div>
+  <div class="fm-sec">ตารางการใช้วัตถุดิบ (เชื่อมโยงมาจากการจ่ายวัตถุดิบของคลัง)</div>
+  <table><colgroup><col style="width:18%"><col style="width:36%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup>
+  <tr><th>รหัส (R)</th><th>ชื่อชนิดข้าว</th><th>จำนวน(KG.)</th><th>%</th><th>ตู้/ถัง</th></tr>${padRows(rows,6,5)}
+  <tr><td colspan="2" class="b">รวม</td><td class="r b">${fmt(p.qty)}</td><td class="r b">100%</td><td></td></tr></table>
+  <div class="fm-sec">เพื่อทำออเดอร์</div>
+  <table><colgroup><col style="width:18%"><col style="width:42%"><col style="width:18%"><col style="width:22%"></colgroup>
+  <tr><th>รหัส (W)</th><th>ชื่อชนิดข้าว</th><th>ลงตู้ / ถัง</th><th>จำนวนตันที่สั่ง</th></tr>
+  <tr><td>${esc(p.code||'')}</td><td>${esc(p.typeName)}</td><td></td><td class="r">${tn(p.qty)}</td></tr>${padRows([],2,4)}</table>
+  <div class="fm-sec">รายการเครื่องจักรที่ใช้</div>
+  <div style="columns:3;column-gap:10px">${MACHINES.map(x=>`<div>☐ ${x}</div>`).join('')}</div>
+  <div class="sig" style="margin-top:18px"><div><div class="b">ผู้ขอเบิก (ฝ่ายวางแผนการผลิต)</div><span class="ln">&nbsp;</span><div class="b">วันที่</div></div>
+  <div><div class="b">ผู้ขอเบิก (แผนกปรับปรุงคุณภาพ)</div><span class="ln">&nbsp;</span><div class="b">วันที่</div></div></div>
+  <div class="sig"><div><div class="b">ผู้อนุมัติจ่ายวัตถุดิบ (ผจก.ฝ่ายคลังสินค้า)</div><span class="ln">&nbsp;</span><div class="b">วันที่</div></div>
+  <div><div class="b">ผู้จ่าย (แผนกคลังสินค้า)</div><span class="ln">&nbsp;</span><div class="b">วันที่</div></div>
+  <div><div class="b">ผู้อนุมัติผลิต (ผจก.ฝ่ายผลิต)</div><span class="ln">&nbsp;</span><div class="b">วันที่</div></div></div></div>`;
+}
+function printOrder(id){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  $('#print-doc').innerHTML=reportDocHtml(o);runPrint('print-doc','ใบรายงาน '+o.no);
+}
+function printPlan(id){
+  const p=S.plans.find(x=>x.id===id);if(!p)return;
+  $('#print-doc').innerHTML=reqDocHtml(p);runPrint('print-doc','ใบเบิก '+p.no);
+}
+
 /* ---------- users ---------- */
 function renderUsers(){
   if(!isAdmin()||S.tab!=='users')return;
@@ -982,6 +1193,9 @@ function renderDash(){
   const pauseN=sum(O,o=>(o.pauses||[]).length);
   const rate=netW>0?(inKg/1000)/(netW/60):null;
   if(!O.length){$('#dash-body').innerHTML='<div class="empty">ไม่มีรายการผลิตที่ตรงกับช่วงเวลาและตัวกรองนี้</div>';return}
+  const ncrAll=sum(W,x=>x.m.ncr),totAll=sum(D,x=>x.m.total);
+  const oG=outKg>0?Math.max(0,(outKg-ncrAll)/outKg):null,oA=totAll>0?netAll/totAll:null,oU=rate!=null?rate/CAP_TPH:null,oE=oG!=null&&oA!=null&&oU!=null?oG*oA*oU:null;
+  const oeeDash=oE==null?'':`<div class="dsec"><h2>ประสิทธิภาพโดยรวม (OEE)</h2><div class="card"><div class="kv"><span>ค่าของดี</span><b>${pcs(oG)}</b></div><div class="kv"><span>ค่าความพร้อม</span><b>${pcs(oA)}</b></div><div class="kv"><span>ค่า Utilize (ตัน/ชม. ÷ ${CAP_TPH})</span><b>${pcs(oU)}</b></div><div class="kv"><span><b>ค่า OEE</b></span><b>${pcs(oE)}</b></div></div></div>`;
   const kpi=`<div class="kpis">
     <div><b>${O.length}</b><span>รายการผลิต</span><small>เสร็จ ${cnt.done} · กำลังผลิต ${cnt.running} · หยุด ${cnt.paused}</small></div>
     <div><b>${tn(inKg)}</b><span>น้ำหนัก input (ตัน)</span><small>${W.length} จาก ${D.length} รายการที่เสร็จ</small></div>
@@ -989,7 +1203,7 @@ function renderDash(){
     <div><b>${tn(byAll)}</b><span>ผลพลอยได้ (ตัน)</span><small>${D.length} รายการที่เสร็จ</small></div>
     <div><b>${rate!=null?fmt(rate):'-'}</b><span>กำลังผลิต (ตัน/ชม.)</span><small>input ÷ เวลาผลิตจริง</small></div>
     <div><b>${fmt(netAll/60)}</b><span>เวลาผลิตจริง (ชม.)</span><small>เฉพาะรายการที่เสร็จ</small></div>
-    <div><b>${fmt(lossAll/60)}</b><span>เวลาสูญเสีย (ชม.)</span><small>หยุด ${pauseN} ครั้ง</small></div></div>`;
+    <div><b>${fmt(lossAll/60)}</b><span>เวลาสูญเสีย (ชม.)</span><small>หยุด ${pauseN} ครั้ง</small></div></div>${oeeDash}`;
   // chart
   let chart='';
   const bk=bucketsOf(kind,a,b);
@@ -1083,16 +1297,17 @@ function planDetail(id){
   openModal(`<div class="row"><div><div class="no">${esc(p.no)} <span class="pill ${s0}">${LABEL[s0]}</span></div>
     <div class="name">${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div><button class="btn sm" data-act="close">ปิด</button></div>
   <div class="meta">${qi?`<span>ลำดับการผลิต <b>${qi}</b></span>`:''}<span>จำนวน <b>${fmt(p.qty)} กก.</b></span><span>วันที่ผลิต <b>${p.plannedDate?dd(p.plannedDate):'ไม่ระบุ'}</b></span></div>
+  ${p.docNo?`<div class="hint">เลขที่: <b>${esc(p.docNo)}</b></div>`:''}
   ${p.note?`<div class="hint">หมายเหตุ: ${esc(p.note)}</div>`:''}
   ${o?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">เริ่มผลิตเมื่อ ${dt(o.startAt)} · ${LABEL[st(o)]}</div>`:''}
   <div><h3 class="lbl" style="margin-bottom:6px">สูตรผสม (คำนวณจาก ${fmt(p.qty)} กก.)</h3>${bar(p.formula)}<div style="margin-top:6px">${ing}</div></div>
-  <div class="foot" style="justify-content:flex-start">${acts.join('')}</div>`);
+  <div class="foot" style="justify-content:flex-start">${acts.join('')}<button class="btn" data-act="print-plan" data-id="${p.id}">พิมพ์ใบเบิก</button></div>`);
 }
 function planForm(id){
   const p=id?S.plans.find(x=>x.id===id):null,locked=!!(p&&p.status==='started');
   if(!S.types.length){toast('เพิ่มชนิดข้าวและสูตรก่อนออกใบสั่งผลิต');setTab('recipes');return}
   const queue=planQueue(),curPos=p&&!locked?queue.findIndex(x=>x.id===p.id)+1:0,maxPos=queue.length+(p&&!locked?0:1);
-  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่และหมายเหตุ</div>':''}
+  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่และเลขที่</div>':''}
   <div class="grid2">
     <div class="field"><label for="p-no">เลขที่ใบสั่ง</label><input id="p-no" value="${esc(p?p.no:orderNo())}" ${locked?'readonly':''}></div>
     <div class="field"><label for="p-date">วันที่ผลิต (แผน)</label><input id="p-date" type="date" value="${esc(p?p.plannedDate:'')}"></div>
@@ -1104,7 +1319,7 @@ function planForm(id){
   </div>
   ${locked?'':'<div class="hint">ใส่เลขลำดับที่ต้องการแทรก เช่น 1 คือผลิตก่อนใบอื่นทั้งหมด ใบที่อยู่ลำดับเดิมจะเลื่อนลงให้อัตโนมัติ</div>'}
   <div id="p-prev"></div>
-  <div class="field"><label for="p-note">หมายเหตุ</label><textarea id="p-note">${esc(p?p.note:'')}</textarea></div>
+  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-11017"></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
       $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
@@ -1114,7 +1329,7 @@ function planForm(id){
       if(!no)return toast('กรอกเลขที่ใบสั่ง');
       if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
       const formula=p&&p.typeId===t.id?p.formula:t.formula;
-      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,note:$('#p-note').value.trim(),status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
+      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
       const pid=p?p.id:uid();let ops;
       if(locked)ops=[['plans',pid,doc]];
       else{
@@ -1211,6 +1426,9 @@ document.addEventListener('click',e=>{
     case 'dclear':S.dash.type='';S.dash.status='all';S.dash.q='';$('#d-q').value='';renderDash();break;
     case 'add-w':$('#w-rows').insertAdjacentHTML('beforeend',wRow());break;
     case 'login-staff':setRole('staff');break;
+    case 'print-dash':printDash();break;
+    case 'print-order':printOrder(id);break;
+    case 'print-plan':printPlan(id);break;
     case 'pick-user':S.loginUser=id;showLogin();break;
     case 'login-back':S.loginUser=null;showLogin();break;
     case 'login-user':loginUser(id);break;
@@ -1219,7 +1437,7 @@ document.addEventListener('click',e=>{
     case 'edit-user':userForm(id);break;
     case 'del-user':confirmUserDel(id);break;
     case 'login-admin':loginAdmin();break;
-    case 'logout':closeModal();setRole(null);break;
+    case 'logout':closeModal();setRemember(null);setRole(null);break;
     case 'pw':pwForm();break;
     case 'tab':setTab(b.dataset.tab);break;
     case 'new-order':orderForm();break;
