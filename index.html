@@ -1217,8 +1217,8 @@ function typeForm(id){
   const t=id?S.types.find(x=>x.id===id):null;
   openModal(`<h2>${t?'แก้ไขชนิดข้าว':'เพิ่มชนิดข้าว'}</h2>
   <div class="grid2">
-    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น ข้าวหอมมะลิผสม"></div>
-    <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น JM-7030"></div>
+    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น หงษ์ทิพย์"></div>
+    <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น W6MIX023-NB"></div>
   </div>
   <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%)</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-ing">+ เพิ่มส่วนผสม</button><button class="btn sm" type="button" data-act="fill">เติมส่วนที่เหลือ</button></div></div>
