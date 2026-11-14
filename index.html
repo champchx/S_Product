@@ -82,9 +82,36 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .fm-sec{font-weight:700;margin:6px 0 2px}
 .fm .ln{display:inline-block;min-width:120px;border-bottom:1px dotted #000;text-align:center;padding:0 4px}
 .fm .sig{display:flex;gap:14px;margin-top:14px}.fm .sig>div{flex:1}.fm .sig .ln{display:block;min-width:0;margin-bottom:2px;height:18px}
+/* ---- forms v2 (match PDF templates) ---- */
+.fm{font-size:8.8px;line-height:1.25;font-family:Arial,'Noto Sans Thai',system-ui,sans-serif}
+.fm .b,.fm th{font-weight:400}.fm th{white-space:nowrap;padding:0 1px!important}
+.fm td,.fm th{padding:0 4px}
+.fm td{height:17px;white-space:nowrap}.fm .hc b{font-weight:400}
+.fm .fm-h{width:100%}
+.fm .fm-h td{height:19px;white-space:nowrap;padding:0 3px;font-weight:400}
+.fm .fm-h td.lg{padding:2px 6px;text-align:center;vertical-align:middle}
+.fm .fm-h .lg img{height:46px;width:auto;max-width:100%}
+.fm .hc{position:relative;text-align:center}.fm .hc span{position:absolute;left:0;top:0}
+.fm .dot td{border-top:1px dotted #000;border-bottom:1px dotted #000}
+.fm .dot tr:last-child td{border-bottom:1px solid #000}
+.fm .dot tr.sl td{border-bottom:1px solid #000}
+.fm .fm-sec{font-weight:400;margin:3px 0 1px}
+.fm .ln{border-bottom:1px dotted #000;min-width:90px}
+.fm .cb{font-size:15px;line-height:1;vertical-align:-2px}
+.fm .sg{display:grid;grid-template-columns:repeat(3,1fr);gap:0 26px;margin-top:10px}
+.fm .sg>div{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:end;line-height:1.9}
+.fm .sg .ln{display:block;min-width:0;height:15px;text-align:center}
+.fm .sg .s{grid-column:1/-1}
+.fm .sg4{display:grid;grid-template-columns:1fr 1fr;gap:6px 70px;margin-top:22px}
+.fm .sg4>div{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:end;line-height:1.9}
+.fm .sg4 .ln{display:block;min-width:0;height:14px}.fm .sg4 .s{grid-column:1/-1}
+.fm.blue .fm-h,.fm.blue .fm-h td{border:2px solid #1f1fe0}
+.fm.blue .fm-h td{color:#1f1fe0}.fm.blue .fm-h .hc b{font-weight:400;color:#d4009b}
+.fm.blue{font-size:10.6px}.fm.blue td{height:21px}.fm.blue .fm-h td{height:25px}.fm.blue .fm-sec{margin:4px 0 2px}.fm.blue .ci{font-size:15px}.fm .dv{color:#1f1fe0;font-weight:400}.fm.blue table.bl td{color:#1f1fe0}.fm.blue table.bv td.c{color:#1f1fe0}.fm.blue table.bl th{color:#000}
+.fm.blue .ci{font-size:13px;vertical-align:-1px}
 @media print{
   @page{size:A4;margin:0}
-  body.print-doc #print-doc{padding:9mm 11mm}
+  body.print-doc #print-doc{padding:4.5mm 8mm 3mm 11mm}
   body.print-dash #app,body.print-dash #print-head{padding-left:12mm;padding-right:12mm;box-decoration-break:clone;-webkit-box-decoration-break:clone}
   body.print-dash #print-head{padding-top:12mm}
   body.print-doc #app,body.print-doc #modal,body.print-doc #print-head{display:none!important}
@@ -996,11 +1023,14 @@ function printDash(){
 const fmDT=v=>v?new Date(v).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
 const fmD=v=>v?new Date(v).toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
 function fmHead(title,docno,eff,rev,logo){
-  return `<table class="fm-h"><tr><td class="lg" rowspan="3">${logo||'<img class="ph-logo" src="logo-white.png" alt="">'}</td><td class="k">ITEM</td><td class="t">${title}</td><td class="k">Eff.Date</td><td class="c">${eff}</td></tr>
-  <tr><td class="k">DOC.No.</td><td class="t">${docno}</td><td class="k">REV.</td><td class="c">${rev}</td></tr>
-  <tr><td class="k">REF.</td><td class="t">แผนการผลิตประจำสัปดาห์</td><td class="k">PAGE</td><td class="c">1/1</td></tr></table>`;
+  const c=(l,v)=>`<td><div class="hc"><span>${l}</span><b>${v}</b></div></td>`;
+  return `<table class="fm-h"><colgroup><col style="width:21%"><col style="width:52%"><col style="width:27%"></colgroup>
+  <tr><td class="lg" rowspan="3">${logo||'<img class="ph-logo" src="logo-white.png" alt="">'}</td>${c('ITEM',title)}${c('Eff.Date',eff)}</tr>
+  <tr>${c('DOC.No.',docno)}${c('REV.',rev)}</tr>
+  <tr>${c('REF.','แผนการผลิตประจำสัปดาห์')}${c('PAGE','1/1')}</tr></table>`;
 }
 function padRows(rows,n,cols){const a=[...rows];while(a.length<n)a.push(`<tr>${'<td>&nbsp;</td>'.repeat(cols)}</tr>`);return a.join('')}
+const cw=a=>'<colgroup>'+a.map(x=>`<col style="width:${x}%">`).join('')+'</colgroup>';
 const FIXED_OUT=[['อ้วนผอม',''],['ปลายในรำ',''],['หิน',''],['เหล็ก',''],['รำก้อน',''],['ข้าวเก็บกวาด-ต้นข้าว','W6MBP106-NB'],['ข้าวล้างระบบ','W6MBP108-NB'],['น้ำหนักสูญเสีย','']];
 function reportDocHtml(o){
   const m=mx(o),r=o.rep||{},code=codeOf(o);
@@ -1009,88 +1039,95 @@ function reportDocHtml(o){
   const inRows=ins.map(x=>`<tr><td>${esc(fcode(x.name))}</td><td>${esc(x.name)}</td><td></td><td class="r">${fmt(x.kg)}</td><td class="r">${pctOf(x.kg,m.inKg)}</td><td class="c">${esc(x.tank||'')}</td><td></td><td></td><td></td></tr>`);
   const bps=(o.byproducts||[]).filter(b=>+b.kg>0),used=new Set(),outRows=[];
   const bpTxt=b=>b.jumbo?` <span style="font-size:8px">(${b.jumbo} จัมโบ้${b.rem?' + เศษ '+fmt(b.rem):''})</span>`:'';
-  if(m.done&&m.hasIn)outRows.push(`<tr><td>${esc(code)}</td><td>${esc(o.typeName)}</td><td></td><td></td><td class="r">${fmt(m.outKg)}</td><td class="r">${pctOf(m.outKg,m.inKg)}</td><td class="c">${esc((o.outTanks||[]).join(', '))}</td></tr>`);
+  const mainRow=m.done&&m.hasIn;
+  if(mainRow)outRows.push(`<tr><td>${esc(code)}</td><td>${esc(o.typeName)}</td><td></td><td></td><td class="r">${fmt(m.outKg)}</td><td class="r">${pctOf(m.outKg,m.inKg)}</td><td class="c">${esc((o.outTanks||[]).join(', '))}</td></tr>`);
   const fixedNames=FIXED_OUT.map(x=>x[0]);
+  if(mainRow)for(let i=0;i<5;i++)outRows.push('<tr>'+'<td>&nbsp;</td>'.repeat(7)+'</tr>');
   bps.filter(b=>!fixedNames.includes(b.name)).forEach(b=>{used.add(b);outRows.push(`<tr><td>${esc(b.code||bpCodeOf(o,b.name))}</td><td>${esc(b.name)}${bpTxt(b)}</td><td></td><td></td><td class="r">${fmt(b.kg)}</td><td class="r">${m.hasIn?pctOf(b.kg,m.inKg):''}</td><td></td></tr>`)});
   const fixRows=FIXED_OUT.map(([n,c])=>{const b=bps.find(x=>x.name===n);return `<tr><td>${esc(b&&b.code?b.code:c)}</td><td>${esc(n)}${b?bpTxt(b):''}</td><td></td><td></td><td class="r">${b?fmt(b.kg):''}</td><td class="r">${b&&m.hasIn?pctOf(b.kg,m.inKg):''}</td><td></td></tr>`}).join('');
   const el=(r.elecFrom!=null&&r.elecFrom!==''&&r.elecTo!=null&&r.elecTo!=='')?(+r.elecTo)-(+r.elecFrom):null;
   const ps=o.pauses||[],lossRows=LOSS_CATS.map(c=>{
     const arr=ps.filter(p=>pauseCat(p)===c),mm=arr.reduce((a,p)=>a+mins(p.from,p.to||o.endAt||nowLocal()),0);
     const from=arr.length?arr.map(p=>p.from).sort()[0]:'',to=arr.length?arr.map(p=>p.to||o.endAt||'').sort().pop():'';
-    return `<tr><td class="b">- ${c}</td><td class="c">${from?fmDT(from).slice(-5):''}</td><td class="c">${to?fmDT(to).slice(-5):''}</td><td class="r">${mm}</td><td>${esc(arr.map(p=>p.reason).filter(Boolean).join(' / '))}</td></tr>`}).join('');
+    return `<tr><td>- ${c}</td><td class="c">${from?fmDT(from).slice(-5):''}</td><td class="c">${to?fmDT(to).slice(-5):''}</td><td class="r">${mm}</td><td>${esc(arr.map(p=>p.reason).filter(Boolean).join(' / '))}</td></tr>`}).join('');
   const dep=m.done&&m.total>0,u=(v,f)=>v!==''&&v!=null?(f?f(v):v):'';
   return `<div class="fm">${fmHead('ใบรายงานการปรับปรุงคุณภาพ','SPPRO-FM004','27/08/69','01','<img src="logo-black.png" alt="">')}
-  <div style="text-align:right;margin:4px 0 0">เลขที่ <b>${esc(o.docNo||'')}</b></div>
-  <div style="text-align:right;font-weight:700">${esc(o.no)}</div>
-  <div style="margin:0 0 2px;font-size:11.5px">☑ ข้าวทั่วไป &nbsp;&nbsp;&nbsp;&nbsp; ☐ ข้าวอื่นๆ <span class="ln" style="min-width:170px">&nbsp;</span> &nbsp; Lot.No <span class="ln" style="min-width:140px">&nbsp;</span></div>
-  <div style="margin:2px 0 3px">ค่าไฟฟ้าจาก <span class="ln" style="min-width:60px">${u(r.elecFrom,fmt)}</span> หน่วย ถึง <span class="ln" style="min-width:60px">${u(r.elecTo,fmt)}</span> หน่วย รวม <span class="ln" style="min-width:60px">${el!=null?fmt(el):''}</span> หน่วย</div>
+  <div style="margin:5px 0 0 74%;line-height:1.5">เลขที่ ${esc(o.docNo||'')}</div>
+  <div style="margin:0 0 0 74%;line-height:1.5;padding-top:12px">${esc(o.no)}</div>
+  <div style="margin:-30px 0 0;font-size:11px"><span class="cb">☑</span> ข้าวทั่วไป &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="cb">☐</span> ข้าว อื่นๆ <span class="ln" style="display:inline-block;min-width:190px">&nbsp;</span></div>
+  <div style="margin:2px 0 4px 27%;color:#444">Lot.No <span class="ln" style="display:inline-block;min-width:170px">&nbsp;</span></div>
+  <div style="margin:2px 0 3px">ค่าไฟฟ้าจาก <span class="ln">${u(r.elecFrom,fmt)}</span> หน่วย ถึง <span class="ln">${u(r.elecTo,fmt)}</span> หน่วย รวม <span class="ln">${el!=null?fmt(el):''}</span> หน่วย</div>
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-  <table style="width:46%"><colgroup><col style="width:62%"><col></colgroup><tr><td class="b">เครื่องจักรที่</td><td class="c">${esc(r.machineNo||'')}</td></tr>
-  <tr><td class="b">อัตราการเดินเครื่องจักร (ตัน/ชม.)</td><td class="c">${m.rate!=null?fmt(m.rate):''}</td></tr>
-  <tr><td class="b">วัน เดือน ปี เวลาเริ่มต้น</td><td class="c">${fmDT(o.startAt)}</td></tr>
-  <tr><td class="b">วัน เดือน ปี เวลาสิ้นสุด</td><td class="c">${m.done?fmDT(o.endAt):''}</td></tr>
-  <tr><td class="b">ใช้เวลา (นาที)</td><td class="c">${dep?m.total:''}</td></tr>
-  <tr><td class="b">ใช้เวลา (ชั่วโมง)</td><td class="c">${dep?fmt(m.total/60):''}</td></tr></table>
-  <table style="width:40%"><tr><th colspan="2">การวัดประสิทธิภาพโดยรวม แผนกปรับปรุงคุณภาพ</th></tr>
-  <tr><td class="b">ค่าของดี</td><td class="r">${pcs(m.good)}</td></tr><tr><td class="b">ค่าความพร้อม</td><td class="r">${pcs(m.avail)}</td></tr>
-  <tr><td class="b">ค่า Utilize</td><td class="r">${pcs(m.util)}</td></tr><tr><td class="b">ค่า OEE</td><td class="r">${pcs(m.oee)}</td></tr></table></div>
+  <table style="width:40%">${cw([60,40])}<tr><td>เครื่องจักรที่</td><td class="c">${esc(r.machineNo||'')}</td></tr>
+  <tr><td>อัตราการเดินเครื่องจักร (ตัน/ชม.)</td><td class="c">${m.rate!=null?fmt(m.rate):''}</td></tr>
+  <tr><td>วัน เดือน ปี เวลาเริ่มต้น</td><td class="c">${o.startAt?fmDT(o.startAt)+' น.':''}</td></tr>
+  <tr><td>วัน เดือน ปี เวลาสิ้นสุด</td><td class="c">${m.done?fmDT(o.endAt)+' น.':''}</td></tr>
+  <tr><td>ใช้เวลา (นาที)</td><td class="c">${dep?m.total:''}</td></tr>
+  <tr><td>ใช้เวลา (ชั่วโมง)</td><td class="c">${dep?fmt(m.total/60):''}</td></tr></table>
+  <table style="width:30%">${cw([56,44])}<tr><th colspan="2">การวัดประสิทธิภาพโดยรวม แผนกปรับปรุงคุณภาพ</th></tr>
+  <tr><td>ค่าของดี</td><td class="r">${pcs(m.good)}</td></tr><tr><td>ค่าความพร้อม</td><td class="r">${pcs(m.avail)}</td></tr>
+  <tr><td>ค่า Utilize</td><td class="r">${pcs(m.util)}</td></tr><tr><td>ค่า OEE</td><td class="r">${pcs(m.oee)}</td></tr></table></div>
   <div class="fm-sec" style="margin-top:4px">วัตถุดิบ (IN PUT) ดึงมาจากการจ่ายวัตถุดิบคลังสินค้า</div>
-  <table><colgroup><col style="width:11%"><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:6%"><col style="width:8%"><col style="width:11%"><col style="width:11%"><col style="width:11%"></colgroup>
+  <table class="dot">${cw([12.7,30,15.5,8.1,6.3,6.5,8.1,7.1,5.7])}
   <tr><td colspan="6" style="border:0"></td><th colspan="3">ข้อมูลการทวนสอบ</th></tr>
   <tr><th>รหัสข้าว</th><th>ชื่อวัตถุดิบ</th><th>สถานที่มา</th><th>จำนวน กก.</th><th>%</th><th>ตู้/ถัง</th><th>จดครั้งก่อน</th><th>จดครั้งหลัง</th><th>ตู้/ถัง</th></tr>
   ${padRows(inRows,6,9)}
-  <tr><td colspan="3" class="b">เพื่อทำออเดอร์ ${esc(o.typeName)}</td><td class="r b">${m.hasIn?fmt(m.inKg):''}</td><td class="r b">${m.hasIn?'100%':''}</td><td></td><td></td><td></td><td></td></tr></table>
+  <tr><td colspan="3">เพื่อทำออเดอร์ ${esc(o.typeName)}</td><td class="r">${m.hasIn?fmt(m.inKg):''}</td><td class="r">${m.hasIn?'100%':''}</td><td></td><td></td><td></td><td></td></tr></table>
   <div class="fm-sec">ผลผลิตที่ออก (OUT PUT)</div>
-  <table><colgroup><col style="width:14%"><col style="width:30%"><col style="width:13%"><col style="width:13%"><col style="width:12%"><col style="width:8%"><col style="width:10%"></colgroup>
+  <table class="dot">${cw([12.7,30,23.6,12.8,8.1,7.1,5.7])}
   <tr><th>รหัสข้าว</th><th>ชื่อ</th><th>จดครั้งก่อน</th><th>จดครั้งหลัง</th><th>จำนวน กก.</th><th>%</th><th>ตู้/ถัง</th></tr>
-  ${padRows(outRows,5,7)}${fixRows}
-  <tr><td colspan="4" class="b">หมายเหตุ : ${esc(o.resultNote||'')}</td><td class="r b">${m.hasIn&&m.done?fmt(m.inKg):''}</td><td class="r b">${m.hasIn&&m.done?'100%':''}</td><td></td></tr></table>
-  <div class="fm-sec" style="border-bottom:1px solid #000">คุณภาพการขัดสี ระดับ ${esc(r.quality||'')}</div>
-  <div class="fm-sec" style="margin-top:2px">วัน เวลาการสูญเสียต่างๆ</div>
-  <table><colgroup><col style="width:22%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:42%"></colgroup>
+  ${padRows(outRows,10,7)}${fixRows}
+  <tr><td colspan="4">หมายเหตุ : ${esc(o.resultNote||'')}</td><td class="r">${m.hasIn&&m.done?fmt(m.inKg):''}</td><td class="r">${m.hasIn&&m.done?'100%':''}</td><td></td></tr></table>
+  <div class="fm-sec" style="border-bottom:1px solid #000;margin-top:5px">คุณภาพการขัดสี ระดับ ${esc(r.quality||'')}</div>
+  <div class="fm-sec">วัน เวลาการสูญเสียต่างๆ</div>
+  <table class="dot">${cw([17,9.4,10.5,10.1,53])}
   <tr><th>รายการ</th><th>เวลาเริ่มต้น</th><th>เวลาสิ้นสุด</th><th>ผลรวม (นาที)</th><th>หมายเหตุ</th></tr>${lossRows}
-  <tr><td class="b">- รวมเวลาที่สูญเสีย</td><td></td><td></td><td class="r b">${m.loss}</td><td></td></tr>
-  <tr><td class="b">- เวลารับภาระ (นาที)</td><td></td><td></td><td class="r b">${dep?m.net:''}</td><td></td></tr>
-  <tr><td class="b">- เวลารับภาระ (ชม.)</td><td></td><td></td><td class="r b">${dep?fmt(m.net/60):''}</td><td></td></tr>
-  <tr><td class="b">- ข้าวติด NCR (กก.)</td><td></td><td></td><td class="r b">${r.ncr?fmt(r.ncr):''}</td><td></td></tr></table>
-  <div class="sig"><div><div class="b">ผู้รายงาน</div><span class="ln">${esc(o.reportBy||'')}</span><div class="b">(พนักงานคุมเครื่อง)</div><div class="b">วันที่ ${m.done?fmD(o.endAt):''}</div></div>
-  <div><div class="b">ผู้ตรวจสอบ</div><span class="ln">&nbsp;</span><div class="b">(หัวหน้าหน่วย)</div><div class="b">วันที่</div></div>
-  <div><div class="b">ผู้อนุมัติ</div><span class="ln">&nbsp;</span><div class="b">(แผนกปรับปรุงคุณภาพ)</div><div class="b">วันที่</div></div></div></div>`;
+  <tr><td>- รวมเวลาที่สูญเสีย</td><td></td><td></td><td class="r">${m.loss}</td><td></td></tr>
+  <tr><td>- เวลารับภาระ (นาที)</td><td></td><td></td><td class="r">${dep?m.net:''}</td><td></td></tr>
+  <tr><td>- เวลารับภาระ (ชม.)</td><td></td><td></td><td class="r">${dep?fmt(m.net/60):''}</td><td></td></tr>
+  <tr><td>- ข้าวติด NCR (กก.)</td><td></td><td></td><td class="r">${r.ncr?fmt(r.ncr):''}</td><td></td></tr></table>
+  <div class="sg"><div><span>ผู้รายงาน</span><span class="ln">${esc(o.reportBy||'')}</span><span class="s">(พนักงานคุมเครื่อง)</span><span class="s">วันที่ ${m.done?fmD(o.endAt):''}</span></div>
+  <div><span>ผู้ตรวจสอบ</span><span class="ln">&nbsp;</span><span class="s">(หัวหน้าหน่วย)</span><span class="s">วันที่</span></div>
+  <div><span>ผู้อนุมัติ</span><span class="ln">&nbsp;</span><span class="s">(แผนกปรับปรุงคุณภาพ)</span><span class="s">วันที่</span></div></div></div>`;
 }
 const MACHINES=['เครื่องทำความสะอาด','เครื่องชั่งน้ำหนัก IN PUT','เครื่องแยกหิน','เครื่องขัดมัน ชุดที่ 1','เครื่องขัดมัน ชุดที่ 2','เครื่องขัดมัน ชุดที่ 3','เครื่องคัดแยกรำก้อน','เครื่องยิงสี ชุดที่ 1','เครื่องยิงสี ชุดที่ 2','ตะแกรงเหลี่ยม DUO','ตะแกรงเหลี่ยม 527','ตะแกรงกลม NO.6','ตะแกลงกลม NO. 4.25','ตะแกรงกลม NO. 4.75','ตะแกรงกลม NO. 5.25','เครื่องคัดเมล็ดอ้วน-ผอม','เครื่องชั่งน้ำหนัก OUT PUT','เครื่องตรวจจับโลหะ'];
 function reqDocHtml(p){
   const t=S.types.find(x=>x.id===p.typeId)||{};
+  const ord=S.orders.find(o=>o.id===p.orderId||o.planId===p.id)||null;
+  const fmG=v=>{if(!v)return '';const d=new Date(v);return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} น.`};
   const rows=(p.formula||[]).map(x=>`<tr><td>${esc(x.code||'')}</td><td>${esc(x.name)}</td><td></td><td class="r">${fmt(p.qty*x.pct/100)}</td><td class="r">${fmt(x.pct)}%</td><td></td></tr>`);
-  const bps=bpDefs({typeId:p.typeId}).filter(d=>d.code||(t.bp&&t.bp.length)).map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td></td></tr>`);
-  const hrs=p.qty>0?p.qty/1000/CAP_TPH:null;
+  const bps=bpDefs({typeId:p.typeId}).filter(d=>d.code||(t.bp&&t.bp.length)).map(d=>`<tr><td>${esc(d.code||'-')}</td><td>${esc(d.name)}</td><td></td></tr>`);
+  const sA=ord&&ord.startAt,eA=ord&&ord.status==='done'&&ord.endAt;
+  const tm=sA&&eA?mins(sA,eA):(p.qty>0?Math.round(p.qty/1000/CAP_TPH*60):null);
   const mc=MACHINES.map(x=>`<td><span class="ci">○</span> ${x}</td>`);while(mc.length%5)mc.push('<td></td>');
   const mrows=[];for(let i=0;i<mc.length;i+=5)mrows.push(`<tr>${mc.slice(i,i+5).join('')}</tr>`);
   return `<div class="fm blue">${fmHead('ใบสั่งงานปรับปรุงคุณภาพ - ใบเบิก','SPPRO-FM028','27/08/69','01','<img src="logo-blue.png" alt="">')}
-  <div style="text-align:right;margin:4px 0 0;font-weight:700">เลขที่ ${esc(p.docNo||'')}</div>
-  <div style="display:flex;justify-content:space-between;margin:6px 0 4px;font-weight:700"><span>เลขที่ JOB/ Lot. การปรับปรุง &nbsp;&nbsp;&nbsp; <span style="font-weight:400;color:#1f1fe0">${esc(p.no)}</span></span><span>วัน เดือน ปี เวลาที่ออกเอกสาร <span style="font-weight:400">${fmDT(p.createdAt)}</span></span></div>
-  <div style="margin:6px 0 2px;font-weight:700">วัตถุประสงค์การใช้งาน</div>
-  <div style="display:flex;gap:26px;margin:2px 0 8px;font-size:11px"><span>☑ ข้าวทั่วไป</span><span>☐ ข้าว Organic <span class="ln" style="min-width:150px">&nbsp;</span></span><span>☐ ข้าว SRP <span class="ln" style="min-width:150px">&nbsp;</span></span></div>
-  <div class="fm-sec">ตารางการใช้วัตถุดิบ (เชื่อมโยงมาจากการจ่ายวัตถุดิบของคลัง)</div>
-  <table><colgroup><col style="width:14%"><col style="width:36%"><col style="width:14%"><col style="width:12%"><col style="width:8%"><col style="width:16%"></colgroup>
-  <tr><th>รหัส (R)</th><th>ชื่อชนิดข้าว</th><th>สถานที่มา</th><th>จำนวน (kg)</th><th>%</th><th>ตู้/ถัง</th></tr>${padRows(rows,7,6)}
-  <tr><td colspan="3" class="b c">รวม</td><td class="r b">${fmt(p.qty)}</td><td class="r b">100%</td><td></td></tr></table>
-  <div class="fm-sec">เพื่อทำออเดอร์</div>
-  <table><colgroup><col style="width:14%"><col style="width:50%"><col style="width:12%"><col style="width:24%"></colgroup>
+  <div style="margin:5px 0 0 80%;line-height:1.6;font-weight:700">เลขที่ <span style="display:inline-block;width:46px"></span><span style="font-weight:400">${esc(p.docNo||'')}</span></div>
+  <div style="display:flex;margin:6px 0 8px 2px"><span style="width:62%;font-weight:700">เลขที่ JOB/ Lot. การปรับปรุง &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="dv">${esc(p.no)}</span></span><span style="font-weight:700;flex:1;display:flex;justify-content:space-between"><span>วัน เดือน ปี เวลาที่ออกเอกสาร</span><span class="dv" style="margin-right:2px">${fmG(p.createdAt)}</span></span></div>
+  <div style="margin:10px 0 4px 2px;font-weight:700">วัตถุประสงค์การใช้งาน</div>
+  <div style="display:flex;margin:2px 0 4px 50px;font-size:10px"><span style="width:21%"><span class="cb">☑</span> ข้าวทั่วไป</span><span style="width:37%"><span class="cb">☐</span> ข้าว Organic <span class="ln" style="display:inline-block;min-width:150px">&nbsp;</span></span><span><span class="cb">☐</span> ข้าว SRP <span class="ln" style="display:inline-block;min-width:170px">&nbsp;</span></span></div>
+  <div style="display:flex;margin:6px 0 12px 210px;font-size:9px"><span style="width:44%">Lot.No <span class="ln" style="display:inline-block;min-width:150px">&nbsp;</span></span><span>Lot.No <span class="ln" style="display:inline-block;min-width:170px">&nbsp;</span></span></div>
+  <div class="fm-sec" style="margin-bottom:2px">ตารางการใช้วัตถุดิบ (เชื่อมโยงมาจากการจ่ายวัตถุดิบของคลัง)</div>
+  <table class="dot bl">${cw([19,41.2,12.1,8.4,6.3,13])}
+  <tr><th>รหัส (R)</th><th>ชื่อชนิดข้าว</th><th>สถานที่มา</th><th>จำนวน (kg)</th><th>%</th><th>ตู้/ถัง</th></tr>${padRows(rows,6,6)}
+  <tr><td>เพื่อทำออเดอร์</td><td>${esc(p.typeName)}</td><td></td><td class="r">${fmt(p.qty)}</td><td class="c">100%</td><td></td></tr></table>
+  <div class="fm-sec" style="margin-top:6px">เพื่อทำออเดอร์</div>
+  <table class="dot bl">${cw([19,53.4,8.4,19.2])}
   <tr><th>รหัส (W)</th><th>ชื่อชนิดข้าว</th><th>ลงตู้/ถัง</th><th>จำนวนตันที่สั่ง</th></tr>
-  <tr><td>${esc(p.code||'')}</td><td>${esc(p.typeName)}</td><td></td><td class="r">${tn(p.qty)}</td></tr>${padRows([],3,4)}
-  <tr><td class="b c">รวม</td><td></td><td></td><td class="r b">${tn(p.qty)}</td></tr></table>
-  <table style="width:52%"><colgroup><col style="width:62%"><col></colgroup>
-  <tr><td class="b">เลขที่ใบคุณภาพเลขที่แนบมา</td><td class="c">${esc(p.docNo||'')}</td></tr>
-  <tr><td class="b">อัตราการเดินเครื่องจักร (ตัน/ชม.)</td><td class="c">${CAP_TPH.toFixed(2)}</td></tr>
-  <tr><td class="b">วัน เดือน ปี เวลาเริ่มต้น</td><td></td></tr><tr><td class="b">วัน เดือน ปี เวลาสิ้นสุด</td><td></td></tr>
-  <tr><td class="b">ใช้เวลา (นาที)</td><td class="c">${hrs!=null?fmt(hrs*60):''}</td></tr><tr><td class="b">ใช้เวลา (ชั่วโมง)</td><td class="c">${hrs!=null?fmt(hrs):''}</td></tr></table>
-  <div class="fm-sec">ปลายข้าว ลงตู้/ถัง</div>
-  <table style="width:58%"><colgroup><col style="width:30%"><col style="width:48%"><col></colgroup>
+  <tr><td>${esc(p.code||'')}</td><td>${esc(p.typeName)}</td><td></td><td class="c">${fmt(p.qty)}</td></tr>${padRows([],3,4)}
+  <tr><td class="c" style="color:#000">รวม</td><td></td><td></td><td></td></tr></table>
+  <table class="bv" style="width:36%;font-size:9.6px">${cw([62,38])}
+  <tr><td>เลขที่ใบคุณภาพเลขที่แนบมา</td><td class="c" style="color:#000">${esc(p.docNo||'')}</td></tr>
+  <tr><td>อัตราการเดินเครื่องจักร (ตัน/ชม.)</td><td class="c" style="color:#000">${CAP_TPH.toFixed(2)}</td></tr>
+  <tr><td>วัน เดือน ปี เวลาเริ่มต้น</td><td class="c">${fmG(sA)}</td></tr><tr><td>วัน เดือน ปี เวลาสิ้นสุด</td><td class="c">${fmG(eA)}</td></tr>
+  <tr><td>ใช้เวลา (นาที)</td><td class="c" style="color:#000">${tm!=null?tm:''}</td></tr><tr><td>ใช้เวลา (ชั่วโมง)</td><td class="c" style="color:#000">${tm!=null?(tm/60).toFixed(2):''}</td></tr></table>
+  <div class="fm-sec" style="margin-top:3px">ปลายข้าว ลงตู้/ถัง</div>
+  <table class="bl" style="width:52.8%">${cw([36,46,18])}
   <tr><th>รหัสข้าว</th><th>ชื่อ</th><th>ตู้/ถัง</th></tr>${padRows(bps,7,3)}</table>
-  <div class="fm-sec">รายการเครื่องจักรที่ใช้</div>
+  <div class="fm-sec" style="margin-top:6px">รายการเครื่องจักรที่ใช้ <span style="display:inline-block;margin-left:140px">${esc(ord&&ord.rep&&ord.rep.machineNo||'')}</span></div>
   <table><tbody>${mrows.join('')}</tbody></table>
-  <div class="sig2"><div><b>ผู้ขอเบิก (ธุรการผลิต)</b><span class="ln">&nbsp;</span><br><b>วันที่</b></div><div><b>ผู้ตรวจสอบ (หนผ.แผนกปรับปรุงคุณภาพ)</b><span class="ln">&nbsp;</span><br><b>วันที่</b></div>
-  <div><b>ผู้จ่าย (แผนกคลังสินค้า)</b><span class="ln">&nbsp;</span><br><b>วันที่</b></div><div><b>ผู้อนุมัติผลิต (ผจก.ฝ่ายผลิต)</b><span class="ln">&nbsp;</span><br><b>วันที่</b></div></div></div>`;
+  <div class="sg4"><div><span>ผู้ขอเบิก (ธุรการผลิต)</span><span class="ln">&nbsp;</span><span class="s">วันที่</span></div><div><span>ผู้ตรวจสอบ (หนผ.แผนกปรับปรุงคุณภาพ)</span><span class="ln">&nbsp;</span><span class="s">วันที่</span></div>
+  <div><span>ผู้จ่าย (แผนกคลังสินค้า)</span><span class="ln">&nbsp;</span><span class="s">วันที่</span></div><div><span>ผู้อนุมัติผลิต (ผจก.ฝ่ายผลิต)</span><span class="ln">&nbsp;</span><span class="s">วันที่</span></div></div></div>`;
 }
 function printOrder(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
