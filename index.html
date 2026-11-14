@@ -854,7 +854,7 @@ function orderForm(id,planId){
   <div id="f-prev"></div>
   <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${o&&inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${o&&(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
-  <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):''))}" placeholder="เช่น 69-4-11017"></div>
+  <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):''))}" placeholder="เช่น 69-4-....."></div>
   <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note||'':''))}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
     const prev=()=>{
@@ -1217,7 +1217,7 @@ function typeForm(id){
   const t=id?S.types.find(x=>x.id===id):null;
   openModal(`<h2>${t?'แก้ไขชนิดข้าว':'เพิ่มชนิดข้าว'}</h2>
   <div class="grid2">
-    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น หงษ์ทิพย์"></div>
+    <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น หงษทิพย์"></div>
     <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น W6MIX023-NB"></div>
   </div>
   <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%)</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
@@ -1431,7 +1431,7 @@ function planForm(id){
   </div>
   ${locked?'':'<div class="hint">ใส่เลขลำดับที่ต้องการแทรก เช่น 1 คือผลิตก่อนใบอื่นทั้งหมด ใบที่อยู่ลำดับเดิมจะเลื่อนลงให้อัตโนมัติ</div>'}
   <div id="p-prev"></div>
-  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-11017"></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
+  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-......"></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
       $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
