@@ -1,6 +1,6 @@
 // เก็บหน้าแอปไว้ในเครื่อง เปิดเร็วและเปิดได้แม้สัญญาณอ่อน ส่วนข้อมูลจาก Google Sheets ไม่ถูกเก็บ (ดึงสดเสมอ)
-const CACHE = 'bscm-rice-v2';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo-white.png'];
+const CACHE = 'bscm-rice-v3';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo-white.png', './logo-black.png', './logo-blue.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
