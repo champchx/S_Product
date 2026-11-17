@@ -532,16 +532,27 @@ function lossIn(o,g){const gf=+new Date(g.from),gt=+new Date(g.to);return (o.pau
 function lossMin(o){
   if(hasOff(o))return segsOf(o).reduce((a,g)=>a+lossIn(o,g),0);
   const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
-/* ข้อมูลรายช่วง: o.segs[i] = {inputs,byproducts,rep} · o.inputs/o.byproducts/o.rep เป็นยอดรวมทุกช่วง */
-function segData(o,i){if(!hasOff(o)||(!o.segs&&i===0))return{inputs:o.inputs||[],byproducts:o.byproducts||[],rep:o.rep||{}};return (o.segs&&o.segs[i])||{inputs:[],byproducts:[],rep:{}}}
-function ensureSegs(o,n){const a=[...(o.segs||[])];if(!o.segs)a[0]={inputs:o.inputs||[],byproducts:o.byproducts||[],rep:o.rep||{}};while(a.length<n)a.push({inputs:[],byproducts:[],rep:{}});return a}
-function aggPatch(segs){
-  const merge=(arr,key,add)=>{const m=new Map();arr.forEach(x=>{const k=key(x),c=m.get(k);if(c)add(c,x);else m.set(k,{...x})});return[...m.values()]};
-  const inputs=merge(segs.flatMap(g=>g.inputs||[]),x=>[x.name,x.code||'',x.tank||'',x.src||''].join('|'),(c,x)=>{c.kg=(+c.kg||0)+(+x.kg||0)});
-  const byproducts=merge(segs.flatMap(g=>g.byproducts||[]),x=>[x.name,x.code||'',x.tank||''].join('|'),(c,x)=>{c.kg=(+c.kg||0)+(+x.kg||0);if(x.jumbo)c.jumbo=(c.jumbo||0)+x.jumbo;if(x.rem)c.rem=(c.rem||0)+x.rem});
-  const R=segs.map(g=>g.rep||{}),r0=R[0]||{},rl=R[R.length-1]||{};
-  return{segs,inputs,byproducts,rep:{machineNo:r0.machineNo||'',quality:r0.quality||'',elecFrom:r0.elecFrom??'',elecTo:rl.elecTo??'',ncr:R.reduce((a,r)=>a+(+r.ncr||0),0)}};
+/* สรุปรายงานใส่ครั้งเดียว (o.inputs / o.byproducts / o.rep = ยอดรวมทั้งงาน) แล้วระบบแบ่งให้แต่ละช่วงเอง:
+   กำลังผลิต(ตัน/ชม.) = input รวม ÷ เวลาผลิตจริงรวม → น้ำหนักรวมช่วง = กำลังผลิต × เวลาผลิตจริงของช่วง
+   → input แต่ละตัวของช่วง = น้ำหนักรวมช่วง × % ของตัวนั้น · ผลพลอยได้ = น้ำหนักรวมช่วง × (ผลพลอยได้ ÷ input รวม) */
+const segNets=o=>segsOf(o).map(g=>g.to?Math.max(0,mins(g.from,g.to)-lossIn(o,g)):0);
+function segShares(o){
+  const sg=segsOf(o);if(!sg.length)return [];
+  let w=segNets(o),T=w.reduce((a,b)=>a+b,0);
+  if(!(T>0)){w=sg.map(g=>g.to?mins(g.from,g.to):0);T=w.reduce((a,b)=>a+b,0)}
+  return w.map(x=>T>0?x/T:1/sg.length);
 }
+const r2=v=>Math.round(v*100)/100;
+const cumSh=(sh,i)=>sh.slice(0,i).reduce((a,b)=>a+b,0);
+const splitKg=(kg,sh,i)=>{const c0=cumSh(sh,i),c1=i===sh.length-1?1:c0+sh[i],k=+kg||0;return r2(r2(k*c1)-r2(k*c0))};
+function splitData(o,i,t){
+  const sh=segShares(o),last=i===sh.length-1;
+  const sp=arr=>(arr||[]).map(x=>{const y={...x};delete y.jumbo;delete y.rem;y.kg=splitKg(x.kg,sh,i);return y}).filter(x=>x.kg>0);
+  const r=t.rep||{},nz=v=>v!==''&&v!=null&&!isNaN(+v);let ef=r.elecFrom,et=r.elecTo;
+  if(nz(ef)&&nz(et)){const d=+et-+ef,c0=cumSh(sh,i),c1=last?1:c0+sh[i];ef=r2(+r.elecFrom+d*c0);et=last?+r.elecTo:r2(+r.elecFrom+d*c1)}
+  return{inputs:sp(t.inputs),byproducts:sp(t.byproducts),rep:{...r,elecFrom:ef,elecTo:et,ncr:splitKg(r.ncr,sh,i)}};
+}
+function segData(o,i){const t={inputs:o.inputs||[],byproducts:o.byproducts||[],rep:o.rep||{}};return hasOff(o)?splitData(o,i,t):t}
 /* มุมมองรายช่วง ใช้พิมพ์ใบรายงานแยกช่วง (เลขที่ใบงาน /1 /2 …) และคำนวณ OEE รายช่วง */
 function segView(o,i){
   const g=segsOf(o)[i];if(!g)return o;const d=segData(o,i);
@@ -1195,23 +1206,20 @@ function readBps(cur){
 }
 function offForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||st(o)!=='running')return;
-  const k=offsOf(o).length,g=segsOf(o)[k],sd=segData(o,k).byproducts||[],cur={};sd.forEach(b=>cur[b.name]=b);
-  const bpList=bpDefs(o);sd.forEach(b=>{if(!bpList.some(d=>d.name===b.name))bpList.push({name:b.name,code:b.code||''})});
+  const k=offsOf(o).length,g=segsOf(o)[k];
   openModal(`<div><h2>หยุดออกงาน</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
-  <div class="notice">หยุดออกงานไม่นับเป็นเวลาสูญเสีย ระบบนับเฉพาะเวลาที่ผลิตจริงของแต่ละช่วงมารวมกัน และแยกใบรายงานเป็นรายช่วง (ช่วงที่ ${k+1} เริ่ม ${esc(dt(g.from))})</div>
+  <div class="notice">หยุดออกงานไม่นับเป็นเวลาสูญเสีย ระบบนับเฉพาะเวลาที่ผลิตจริงของแต่ละช่วงมารวมกัน (ช่วงที่ ${k+1} เริ่ม ${esc(dt(g.from))}) · input และผลพลอยได้ใส่ครั้งเดียวตอนสรุปรายงาน ระบบแบ่งให้แต่ละช่วงเอง</div>
   <div class="field"><label for="of-t">เวลาที่หยุดออกงาน</label><input id="of-t" type="datetime-local" value="${nowLocal()}"></div>
   <div class="hint" id="of-dur"></div>
   <div class="field"><label for="of-why">หมายเหตุ (ไม่บังคับ)</label><input id="of-why" maxlength="80" placeholder="เช่น หมดกะ / เลิกงาน"></div>
-  <div class="field"><span class="lbl">ผลพลอยได้ของช่วงที่ ${k+1} ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span><div>${bpList.map((d,i)=>bpRowHtml(d,i,cur)).join('')}</div></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="of-save">หยุดออกงาน</button></div>`,()=>{
     const d=()=>{const v=$('#of-t').value;$('#of-dur').textContent=v&&new Date(v)>=new Date(g.from)?`ช่วงที่ ${k+1} ผลิตจริง ${hm(mins(g.from,v)-lossIn(o,{from:g.from,to:v}))}`:''};
-    $('#of-t').oninput=d;d();$('#sheet').addEventListener('input',()=>{if($('#of-save'))syncJumbo()});
+    $('#of-t').oninput=d;d();
     $('#of-save').onclick=async()=>{
       const t=$('#of-t').value;if(!t)return toast('ใส่เวลาที่หยุดออกงาน');
       if(new Date(t)<new Date(g.from))return toast('เวลาต้องไม่ก่อนเวลาเริ่มช่วงนี้');
-      const segs=ensureSegs(o,k+1),why=$('#of-why').value.trim();
-      segs[k]={...segs[k],byproducts:readBps(cur)};
-      if(await upd(o,{status:'off',offs:[...(o.offs||[]),{from:t,...(why?{reason:why}:{})}],...aggPatch(segs)})){closeModal();toast('บันทึกการหยุดออกงานแล้ว')}
+      const why=$('#of-why').value.trim();
+      if(await upd(o,{status:'off',offs:[...(o.offs||[]),{from:t,...(why?{reason:why}:{})}]},['segs'])){closeModal();toast('บันทึกการหยุดออกงานแล้ว')}
     };
   });
 }
@@ -1225,8 +1233,7 @@ function onShiftForm(id){
     $('#on-save').onclick=async()=>{
       const v=$('#on-t').value;if(!v)return toast('ใส่เวลาที่เริ่มผลิตต่อ');
       if(new Date(v)<new Date(f.from))return toast('เวลาต้องไม่ก่อนเวลาที่หยุดออกงาน');
-      const segs=ensureSegs(o,offs.length+1);
-      if(await upd(o,{status:'running',offs:offs.map((x,i)=>i===offs.length-1?{...x,to:v}:x),...aggPatch(segs)})){closeModal();toast('เข้างาน เริ่มผลิตต่อแล้ว')}
+      if(await upd(o,{status:'running',offs:offs.map((x,i)=>i===offs.length-1?{...x,to:v}:x)},['segs'])){closeModal();toast('เข้างาน เริ่มผลิตต่อแล้ว')}
     };
   });
 }
@@ -1246,7 +1253,7 @@ function syncJumbo(){
 }
 function resultForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||st(o)==='off')return;
-  const mk=hasOff(o)?offsOf(o).length:-1,srcBp=mk>=0?(segData(o,mk).byproducts||[]):(o.byproducts||[]);
+  const mk=hasOff(o)?offsOf(o).length:-1,srcBp=o.byproducts||[];
   const cur={};srcBp.forEach(b=>cur[b.name]=b);
   const bpList=bpDefs(o);srcBp.forEach(b=>{if(!bpList.some(d=>d.name===b.name))bpList.push({name:b.name,code:b.code||''})});
   openModal(`<div><h2>${o.status==='done'?'แก้ไขผลการผลิต':'บันทึกผลการผลิต'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
@@ -1255,7 +1262,7 @@ function resultForm(id){
     <div class="field"><label for="r-end">เวลาผลิตเสร็จ</label><input id="r-end" type="datetime-local" value="${esc(o.endAt||nowLocal())}"></div>
   </div>
   <div class="hint" id="r-dur"></div>
-  <div class="field"><span class="lbl">ผลพลอยได้${mk>=0?` ของช่วงที่ ${mk+1} (ช่วงสุดท้าย)`:''} ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>${mk>=0?'<div class="hint">ผลพลอยได้ของช่วงก่อนหน้าบันทึกไว้ตอนหยุดออกงานแล้ว (แก้ได้ที่แท็บ “งานที่ต้องสรุป”)</div>':''}
+  <div class="field"><span class="lbl">ผลพลอยได้${mk>=0?' รวมทุกช่วง':''} ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>${mk>=0?'<div class="hint">ใส่ยอดรวมทั้งงาน (ทุกช่วง) ระบบจะแบ่งให้แต่ละช่วงเองตอนสรุปรายงาน</div>':''}
     <div>${bpList.map((d,i)=>bpRowHtml(d,i,cur)).join('')}</div>
     <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำ ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
   <div class="hint">น้ำหนัก input ถัง ข้อมูลใบรายงาน และสรุปผล ทำที่แท็บ “งานที่ต้องสรุป” หลังผลิตเสร็จ</div>
@@ -1288,8 +1295,8 @@ function resultForm(id){
       const byproducts=readBps(cur);
       const pauses=(o.pauses||[]).map(p=>p.to?p:{...p,to:b});
       const base={status:'done',startAt:a,endAt:b,pauses,resultNote:$('#r-note').value.trim(),reportBy:by,...(o.status!=='done'?{summarized:false}:{})};
-      if(mk>=0){const segs=ensureSegs(o,mk+1);segs[mk]={...segs[mk],byproducts};Object.assign(base,aggPatch(segs))}else base.byproducts=byproducts;
-      if(await upd(o,base,['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
+      base.byproducts=byproducts;
+      if(await upd(o,base,['outputKg','segs'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
     };
   });
 }
@@ -1438,63 +1445,53 @@ async function resendLine(id,final){
 function sRow(b,o){b=b||{};return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${b.tank===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
 function summaryForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||!isAdmin())return;
-  const defs=bpDefs(o),multi=hasOff(o),sg=multi?segsOf(o):[{i:0,from:o.startAt,to:o.endAt}];
-  const SD=sg.map((g,i)=>segData(o,i)),CUR=SD.map(d=>(d.byproducts||[]).filter(b=>+b.kg>0));
+  const defs=bpDefs(o),cur=(o.byproducts||[]).filter(b=>+b.kg>0),r=o.rep||{};
   const by0=(o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName();
-  const segMin=g=>mins(g.from,g.to)-lossIn(o,g);
-  const block=i=>{const g=sg[i],d=SD[i],r=d.rep||{},cur=CUR[i],src=(d.inputs||[]).map(x=>({name:x.name||'',code:x.code||'',tank:x.tank||'',kg:x.kg,src:x.src||''}));
-    return `<div class="${multi?'segbox':'segplain'}">
-    ${multi?`<div class="segh"><b>ช่วงที่ ${i+1}</b> · ${esc(dt(g.from))} – ${esc(dt(g.to))} · ผลิตจริง ${hm(segMin(g))}<br><span class="hint">เลขที่ใบงาน ${esc(i&&o.docNo?o.docNo+'/'+i:(o.docNo||'-'))}</span></div>`:''}
-    ${weightFields(o,i,src)}
-    <div class="field"><span class="lbl">ผลพลอยได้${multi?' ช่วงที่ '+(i+1):''} ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span>
-      <div class="lines" id="s-bp-${i}">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
-      <div class="actions"><button class="btn sm" type="button" data-act="add-sbp" data-t="#s-bp-${i}">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum-${i}"></div></div>
-    <div class="field"><span class="lbl">ข้อมูลใบรายงาน${multi?' ช่วงที่ '+(i+1):''}</span>
-      <div class="grid2"><div><label for="s-mc-${i}" class="hint">เครื่องจักรที่</label><input id="s-mc-${i}" maxlength="10" value="${esc(r.machineNo||'')}"></div>
-      <div><label for="s-q-${i}" class="hint">คุณภาพการขัดสี ระดับ</label><input id="s-q-${i}" maxlength="20" value="${esc(r.quality||'')}"></div></div>
-      <div class="grid2"><div><label for="s-e1-${i}" class="hint">ค่าไฟฟ้า หน่วยเริ่มต้น</label><input id="s-e1-${i}" type="number" step="any" inputmode="decimal" value="${r.elecFrom??''}"></div>
-      <div><label for="s-e2-${i}" class="hint">หน่วยสิ้นสุด</label><input id="s-e2-${i}" type="number" step="any" inputmode="decimal" value="${r.elecTo??''}"></div></div>
-      <div><label for="s-ncr-${i}" class="hint">ข้าวติด NCR (กก.)</label><input id="s-ncr-${i}" type="number" min="0" step="any" inputmode="decimal" value="${r.ncr??''}"></div></div></div>`};
-  openModal(`<div><h2>${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)} · เสร็จ ${esc(dt(o.endAt))}${multi?` · ${sg.length} ช่วง (หยุดออกงาน ${sg.length-1} ครั้ง) ใบรายงานแยกตามช่วง`:''}</div></div>
+  openModal(`<div><h2>${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)} · เสร็จ ${esc(dt(o.endAt))}</div></div>
   <div class="field"><label for="s-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger)">*</b></label><input id="s-by" maxlength="60" value="${esc(by0)}" placeholder="ชื่อ-นามสกุลผู้รายงาน"></div>
-  <datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
-  ${sg.map((g,i)=>block(i)).join('')}
-  ${multi?'<div class="notice" id="s-tot" style="white-space:pre-line"></div>':''}
+  ${weightFields(o)}
   <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ผลพลอยได้ ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span><datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
+    <div class="lines" id="s-bp">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
+    <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
+  ${hasOff(o)?'<div class="notice" id="s-alloc" style="white-space:pre-line"></div>':''}
+  <div class="field"><span class="lbl">ข้อมูลใบรายงาน</span>
+    <div class="grid2"><div><label for="s-mc" class="hint">เครื่องจักรที่</label><input id="s-mc" maxlength="10" value="${esc(r.machineNo||'')}"></div>
+    <div><label for="s-q" class="hint">คุณภาพการขัดสี ระดับ</label><input id="s-q" maxlength="20" value="${esc(r.quality||'')}"></div></div>
+    <div class="grid2"><div><label for="s-e1" class="hint">ค่าไฟฟ้า หน่วยเริ่มต้น</label><input id="s-e1" type="number" step="any" inputmode="decimal" value="${r.elecFrom??''}"></div>
+    <div><label for="s-e2" class="hint">หน่วยสิ้นสุด</label><input id="s-e2" type="number" step="any" inputmode="decimal" value="${r.elecTo??''}"></div></div>
+    <div><label for="s-ncr" class="hint">ข้าวติด NCR (กก.)</label><input id="s-ncr" type="number" min="0" step="any" inputmode="decimal" value="${r.ncr??''}"></div></div>
   <div class="field"><label for="s-note">หมายเหตุ</label><textarea id="s-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot f4"><button class="btn" data-act="close">ยกเลิก</button><button class="btn" id="s-save">บันทึกร่าง</button><button class="btn" id="s-final">สรุป (ไม่ส่ง LINE)</button><button class="btn primary" id="s-save-line">สรุปรายงาน + ส่ง LINE</button></div>`,()=>{
-    const rdBp=i=>[...document.querySelectorAll(`#s-bp-${i} .sr`)].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:parseFloat(r.querySelector('[data-sk]').value)||0,tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
-    const sum=()=>{
-      let tIn=0,tBy=0,tNet=0;
-      sg.forEach((g,i)=>{
-        const ws=readWeights('#w-rows-'+i),w=ws.reduce((a,x)=>a+x.kg,0),by=rdBp(i),k=by.reduce((a,x)=>a+x.kg,0),net=segMin(g);
-        tIn+=w;tBy+=k;tNet+=net;
-        const e1=$('#w-sum-'+i),e2=$('#s-sum-'+i);if(!e1||!e2)return;e1.style.whiteSpace='pre-line';e2.style.whiteSpace='pre-line';
-        e1.textContent=w?ws.map(x=>`${x.name}  ${fmt(x.kg)} กก. = ${pctOf(x.kg,w)}`).join('\n')+`\nน้ำหนัก input${multi?' ช่วงที่ '+(i+1):''} รวม ${fmt(w)} กก. (${tn(w)} ตัน)`:'';
-        e2.textContent=(by.length?by.map(x=>`${x.name}${x.code?' ('+x.code+')':''}  ${fmt(x.kg)} กก.${w?' = '+pctOf(x.kg,w):''}`).join('\n')+`\nผลพลอยได้รวม ${fmt(k)} กก.${w?' · ข้าวที่ผลิตได้ '+fmt(w-k)+' กก. = '+pctOf(w-k,w):''}`:'')+(multi&&w&&net>0?`${by.length?'\n':''}ช่วงที่ ${i+1}: ผลิตจริง ${hm(net)} · ${fmt((w/1000)/(net/60))} ตัน/ชม.`:'');
-      });
-      const t=$('#s-tot');if(t)t.textContent=`รวมทุกช่วง: input ${fmt(tIn)} กก. (${tn(tIn)} ตัน) · ผลพลอยได้ ${fmt(tBy)} กก.${tIn?' · ข้าวที่ผลิตได้ '+fmt(tIn-tBy)+' กก.':''}\nเวลาผลิตจริงรวม ${hm(tNet)}${tIn>0&&tNet>0?' · '+fmt((tIn/1000)/(tNet/60))+' ตัน/ชม.':''}`;
-    };
+    const rd=()=>[...document.querySelectorAll('#s-bp .sr')].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:parseFloat(r.querySelector('[data-sk]').value)||0,tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
+    const sum=()=>{wSum();if(!$('#s-sum'))return;const w=readWeights().reduce((a,x)=>a+x.kg,0),by=rd(),k=by.reduce((a,x)=>a+x.kg,0);$('#s-sum').style.whiteSpace='pre-line';$('#s-sum').textContent=by.length?by.map(x=>`${x.name}${x.code?' ('+x.code+')':''}  ${fmt(x.kg)} กก.${w?' = '+pctOf(x.kg,w):''}`).join('\n')+`\nผลพลอยได้รวม ${fmt(k)} กก.${w?' · ข้าวที่ผลิตได้ '+fmt(w-k)+' กก. = '+pctOf(w-k,w):''}`:''};
     $('#sheet').addEventListener('input',sum);
     $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim())||catByName(n.value);if(d&&!c.value)c.value=d.code;sum()});
-    sum();
+    const alloc=()=>{
+      const el=$('#s-alloc');if(!el)return;
+      const W=readWeights(),tw=W.reduce((a,x)=>a+x.kg,0),by=rd(),tb=by.reduce((a,x)=>a+x.kg,0),sh=segShares(o),nets=segNets(o),T=nets.reduce((a,b)=>a+b,0);
+      if(!(tw>0)){el.textContent='ใส่น้ำหนัก input รวม ระบบจะแบ่งให้แต่ละช่วงตามเวลาผลิตจริง';return}
+      const rate=T>0?tw/1000/(T/60):0;
+      el.textContent=`กำลังผลิตรวม ${fmt(rate)} ตัน/ชม. (input ${fmt(tw)} กก. ÷ เวลาผลิตจริง ${hm(T)})\n`+segsOf(o).map((g,i)=>{const w=splitKg(tw,sh,i),b=splitKg(tb,sh,i);return `ช่วงที่ ${i+1}${o.docNo?' ('+o.docNo+(i?'/'+i:'')+')':''}: ผลิตจริง ${hm(nets[i])} × ${fmt(rate)} = น้ำหนักรวม ${fmt(w)} กก. · ผลพลอยได้ ${fmt(b)} กก.`}).join('\n')+'\nแล้วแบ่ง input/ผลพลอยได้ตามเปอร์เซ็นต์ของแต่ละตัว (คำนวณให้อัตโนมัติ)';
+    };
+    const sum0=sum;
+    $('#sheet').addEventListener('input',alloc);$('#sheet').addEventListener('change',alloc);
+    sum();alloc();
     const doSave=async(mode)=>{
-      const by=$('#s-by').value.trim();
-      const out=sg.map((g,i)=>({inputs:readWeights('#w-rows-'+i),
-        byproducts:rdBp(i).map(x=>{const old=CUR[i].find(b=>b.name===x.name&&+b.kg===x.kg);return{name:x.name,...(x.code?{code:x.code}:{}),...(x.tank?{tank:x.tank}:{}),kg:x.kg,...(old&&old.jumbo?{jumbo:old.jumbo}:{}),...(old&&old.rem?{rem:old.rem}:{})}}),
-        rep:{machineNo:$('#s-mc-'+i).value.trim(),quality:$('#s-q-'+i).value.trim(),elecFrom:$('#s-e1-'+i).value===''?'':parseFloat($('#s-e1-'+i).value),elecTo:$('#s-e2-'+i).value===''?'':parseFloat($('#s-e2-'+i).value),ncr:parseFloat($('#s-ncr-'+i).value)||0}}));
+      const by=$('#s-by').value.trim(),w=readWeights();
       if(mode!=='draft'){
         if(!by)return toast('กรอกชื่อ-นามสกุลผู้รายงาน');
-        const miss=out.findIndex(x=>!x.inputs.length);
-        if(miss>=0)return toast(multi?`ช่วงที่ ${miss+1} ยังไม่ได้ใส่น้ำหนัก input`:'ใส่น้ำหนัก input อย่างน้อย 1 รายการ');
+        if(!w.length)return toast('ใส่น้ำหนัก input อย่างน้อย 1 รายการ');
       }
-      const patch={...(multi?aggPatch(out):{inputs:out[0].inputs,byproducts:out[0].byproducts,rep:out[0].rep}),
+      const bp=rd().map(x=>{const old=cur.find(b=>b.name===x.name&&+b.kg===x.kg);return{name:x.name,...(x.code?{code:x.code}:{}),...(x.tank?{tank:x.tank}:{}),kg:x.kg,...(old&&old.jumbo?{jumbo:old.jumbo}:{}),...(old&&old.rem?{rem:old.rem}:{})}});
+      const patch={inputs:w,byproducts:bp,
         inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
         outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
+        rep:{machineNo:$('#s-mc').value.trim(),quality:$('#s-q').value.trim(),elecFrom:$('#s-e1').value===''?'':parseFloat($('#s-e1').value),elecTo:$('#s-e2').value===''?'':parseFloat($('#s-e2').value),ncr:parseFloat($('#s-ncr').value)||0},
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
         ...(mode!=='draft'?{summarized:true,sumAt:nowLocal(),sumBy:byName()}:{})};
-      if(await upd(o,patch,['outputKg'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
+      if(await upd(o,patch,['outputKg','segs'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
     };
     $('#s-save').onclick=()=>doSave('draft');$('#s-final').onclick=()=>doSave('final');$('#s-save-line').onclick=()=>doSave('line');
   });
@@ -1974,7 +1971,7 @@ document.addEventListener('click',e=>{
     case 'on-shift':onShiftForm(id);break;
     case 'resume':resumeForm(id);break;
     case 'del-pause':{const o=S.orders.find(x=>x.id===id),i=+b.dataset.i;const np=(o.pauses||[]).filter((_,k)=>k!==i);upd(o,{pauses:np,status:o.status==='paused'&&!np.some(p=>!p.to)?'running':o.status}).then(()=>setTimeout(()=>orderDetail(id),80));break}
-    case 'reopen':{const o=S.orders.find(x=>x.id===id);let pt={status:'running'},dp=['endAt','byproducts','resultNote','outputKg'];if(hasOff(o)){const sg=ensureSegs(o,offsOf(o).length+1),k=sg.length-1;sg[k]={...sg[k],byproducts:[]};pt={...pt,...aggPatch(sg)};dp=['endAt','resultNote','outputKg']}upd(o,pt,dp).then(ok=>{if(ok){closeModal();toast('ย้อนกลับเป็นกำลังผลิตแล้ว')}});break}
+    case 'reopen':{const o=S.orders.find(x=>x.id===id);upd(o,{status:'running'},['endAt','byproducts','resultNote','outputKg','segs']).then(ok=>{if(ok){closeModal();toast('ย้อนกลับเป็นกำลังผลิตแล้ว')}});break}
     case 'new-type':typeForm();break;
     case 'edit-type':typeForm(id);break;
     case 'del-type':confirmDel('type',id);break;

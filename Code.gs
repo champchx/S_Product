@@ -231,9 +231,42 @@ function onShiftMin_(o) {
   return segs_(o).reduce(function (a, g) { return a + (g.to ? minsBetween_(g.from, g.to) : 0); }, 0);
 }
 
+// สรุปรายงานใส่ครั้งเดียว (ยอดรวม) แล้วแบ่งให้แต่ละช่วงตามเวลาผลิตจริง:
+// กำลังผลิต = input รวม ÷ เวลาผลิตจริงรวม · น้ำหนักรวมช่วง = กำลังผลิต × เวลาของช่วง · แต่ละตัว = น้ำหนักรวมช่วง × % ของตัวนั้น
+function lossInSeg_(o, g) {
+  return (o.pauses || []).reduce(function (a, p) {
+    const f = Math.max(parseMin_(p.from), parseMin_(g.from)), t = Math.min(parseMin_(p.to || g.to), parseMin_(g.to));
+    return a + (t > f ? Math.round(t - f) : 0);
+  }, 0);
+}
+
+function segShares_(o) {
+  const sg = segs_(o);
+  if (!sg.length) return [];
+  let w = sg.map(function (g) { return g.to ? Math.max(0, minsBetween_(g.from, g.to) - lossInSeg_(o, g)) : 0; });
+  let T = w.reduce(function (a, b) { return a + b; }, 0);
+  if (!(T > 0)) { w = sg.map(function (g) { return g.to ? minsBetween_(g.from, g.to) : 0; }); T = w.reduce(function (a, b) { return a + b; }, 0); }
+  return w.map(function (x) { return T > 0 ? x / T : 1 / sg.length; });
+}
+
+function r2_(v) { return Math.round(v * 100) / 100; }
+
+function splitKg_(kg, sh, i) {
+  let c0 = 0;
+  for (let k = 0; k < i; k++) c0 += sh[k];
+  const c1 = i === sh.length - 1 ? 1 : c0 + sh[i], v = +kg || 0;
+  return r2_(r2_(v * c1) - r2_(v * c0));
+}
+
 function segData_(o, i) {
-  if (!offsOf_(o).length || (!o.segs && i === 0)) return { inputs: o.inputs || [], byproducts: o.byproducts || [], rep: o.rep || {} };
-  return (o.segs && o.segs[i]) || { inputs: [], byproducts: [], rep: {} };
+  const t = { inputs: o.inputs || [], byproducts: o.byproducts || [], rep: o.rep || {} };
+  if (!offsOf_(o).length) return t;
+  const sh = segShares_(o);
+  const sp = function (arr) {
+    return (arr || []).map(function (x) { const y = {}; for (const k in x) y[k] = x[k]; y.kg = splitKg_(x.kg, sh, i); return y; })
+      .filter(function (x) { return x.kg > 0; });
+  };
+  return { inputs: sp(t.inputs), byproducts: sp(t.byproducts), rep: t.rep };
 }
 
 function lossMin_(o) {
@@ -423,13 +456,12 @@ function orderMessages_(ch, by, out) {
         'เหตุผล: ' + plabel_(p), 'หยุดเมื่อ: ' + fmtDT_(p.from)]), by));
     } else if (sNew === 'off') {
       const offs = offsOf_(o), k = offs.length - 1, f = offs[k] || {}, g = segs_(o)[k] || {};
-      const d = segData_(o, k), gi = sumKg_(d.inputs), gb = sumKg_(d.byproducts), gm = g.to ? minsBetween_(g.from, g.to) : 0;
+      const gm = g.to ? minsBetween_(g.from, g.to) : 0;
       if (NOTIFY.orderOff) out.push(msg_('🚪 หยุดออกงาน', identRows_(o).concat([
         'หยุดเมื่อ: ' + fmtDT_(f.from), f.reason ? 'เหตุผล: ' + f.reason : '',
         'ช่วงที่ ' + (k + 1) + ' ผลิตจริง: ' + hm_(gm),
-        gb > 0 ? 'ผลพลอยได้ช่วงนี้: ' + num_(gb) + ' กก.' : '',
         'เวลาทำงานสะสม: ' + hm_(onShiftMin_(o)),
-        '(ช่วงหยุดออกงานไม่นับเป็นเวลาสูญเสีย)']), by));
+        '(ช่วงหยุดออกงานไม่นับเป็นเวลาสูญเสีย)', 'input/ผลพลอยได้ใส่ครั้งเดียวตอนสรุปรายงาน']), by));
     } else if (sNew === 'done') {
       if (NOTIFY.orderDone) out.push(msg_('✅ ผลิตเสร็จ', identRows_(o).concat(summaryRows_(o)), by));
     } else if (sOld === 'off') {
