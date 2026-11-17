@@ -21,7 +21,8 @@ const NOTIFY = {
   planReordered: true,  // สลับ/แทรกลำดับการผลิต
   orderStarted: true,   // เริ่มการผลิต (กำลังผลิต)
   orderPaused: true,    // หยุดชั่วคราว
-  orderResumed: true,   // เริ่มผลิตต่อ
+  orderOff: true,       // หยุดออกงาน (ไม่นับเวลาสูญเสีย)
+  orderResumed: true,   // เริ่มผลิตต่อ / เข้างาน
   orderDone: true,      // ผลิตเสร็จ
   orderReopened: true,  // ย้อนกลับเป็นกำลังผลิต
   orderEdited: true,    // แก้ไขรายการผลิต
@@ -206,12 +207,46 @@ function sumKg_(arr) {
 }
 
 function stat_(o) {
-  return o.status === 'done' ? 'done' : o.status === 'paused' ? 'paused' : 'running';
+  return o.status === 'done' ? 'done' : o.status === 'paused' ? 'paused' : o.status === 'off' ? 'off' : 'running';
+}
+
+// ---- หยุดออกงาน: เวลาช่วงที่หยุดออกงานไม่นับ ไม่เป็นเวลาสูญเสีย รวมเฉพาะเวลาทำงานแต่ละช่วง ----
+function offsOf_(o) { return (o.offs || []).filter(function (x) { return x && x.from; }); }
+
+function segs_(o) {
+  const out = [];
+  let a = o.startAt;
+  if (!a) return out;
+  const offs = offsOf_(o);
+  for (let i = 0; i < offs.length; i++) {
+    out.push({ from: a, to: offs[i].from });
+    a = offs[i].to || null;
+    if (!a) break;
+  }
+  if (a) out.push({ from: a, to: o.status === 'done' ? o.endAt : nowLocal_() });
+  return out;
+}
+
+function onShiftMin_(o) {
+  return segs_(o).reduce(function (a, g) { return a + (g.to ? minsBetween_(g.from, g.to) : 0); }, 0);
+}
+
+function segData_(o, i) {
+  if (!offsOf_(o).length || (!o.segs && i === 0)) return { inputs: o.inputs || [], byproducts: o.byproducts || [], rep: o.rep || {} };
+  return (o.segs && o.segs[i]) || { inputs: [], byproducts: [], rep: {} };
 }
 
 function lossMin_(o) {
   const end = o.status === 'done' ? o.endAt : nowLocal_();
-  return (o.pauses || []).reduce(function (a, p) { return a + minsBetween_(p.from, p.to || end); }, 0);
+  if (!offsOf_(o).length) {
+    return (o.pauses || []).reduce(function (a, p) { return a + minsBetween_(p.from, p.to || end); }, 0);
+  }
+  return segs_(o).reduce(function (acc, g) {
+    return acc + (o.pauses || []).reduce(function (a, p) {
+      const f = Math.max(parseMin_(p.from), parseMin_(g.from)), t = Math.min(parseMin_(p.to || g.to), parseMin_(g.to));
+      return a + (t > f ? Math.round(t - f) : 0);
+    }, 0);
+  }, 0);
 }
 
 function list_(a) { return (a && a.length) ? a.join(', ') : '-'; }
@@ -245,12 +280,13 @@ function summaryRows_(o) {
   const inKg = sumKg_(o.inputs);
   const byKg = sumKg_(o.byproducts);
   let net = 0, total = 0;
+  const multi = offsOf_(o).length > 0;
   if (done && o.startAt && o.endAt) {
-    total = minsBetween_(o.startAt, o.endAt);
+    total = onShiftMin_(o);
     const loss = lossMin_(o);
     net = Math.max(0, total - loss);
     rows.push('เริ่ม: ' + fmtDT_(o.startAt), 'เสร็จ: ' + fmtDT_(o.endAt),
-      'เวลาทั้งหมด: ' + hm_(total),
+      multi ? 'เวลาทำงานรวมทุกช่วง: ' + hm_(total) + ' (ไม่รวมช่วงหยุดออกงาน)' : 'เวลาทั้งหมด: ' + hm_(total),
       'เวลาสูญเสียจากการหยุด: ' + hm_(loss) + ' (' + num_(loss / 60) + ' ชม.)',
       'เวลาผลิตจริง: ' + hm_(net));
   }
@@ -272,16 +308,14 @@ function summaryRows_(o) {
   if (done && inKg > 0) {
     rows.push('ข้าวที่ผลิตได้ : ' + num_(inKg - byKg) + ' กก. (' + num_((inKg - byKg) / 1000, 3) + ' ตัน) = ' + pct_(inKg - byKg, inKg) + ' ของ input');
     if (net > 0) rows.push('กำลังผลิต: ' + num_(inKg / 1000 / (net / 60)) + ' ตัน/ชม.');
-    const outKg = inKg - byKg, ncr = +((o.rep || {}).ncr) || 0;
-    const good = outKg > 0 ? Math.max(0, (outKg - ncr) / outKg) : null;
-    const avail = total > 0 ? net / total : null;
-    const util = net > 0 ? (inKg / 1000 / (net / 60)) / 10 : null;
-    if (good != null && avail != null && util != null) {
-      rows.push('— OEE —',
-        'ค่าของดี: ' + num_(good * 100) + '%' + (ncr ? ' (ข้าวติด NCR ' + num_(ncr) + ' กก.)' : ''),
-        'ค่าความพร้อม: ' + num_(avail * 100) + '%',
-        'ค่า Utilize: ' + num_(util * 100) + '%',
-        'ค่า OEE: ' + num_(good * avail * util * 100) + '%');
+    if (multi) {
+      rows.push('— แยกตามช่วงการผลิต —');
+      segs_(o).forEach(function (g, i) {
+        const d = segData_(o, i), gi = sumKg_(d.inputs), gb = sumKg_(d.byproducts), gm = g.to ? minsBetween_(g.from, g.to) : 0;
+        rows.push('ช่วงที่ ' + (i + 1) + (o.docNo ? ' (เลขที่ ' + o.docNo + (i ? '/' + i : '') + ')' : '') + ': ' + fmtDT_(g.from) + ' – ' + fmtDT_(g.to));
+        rows.push('  ผลิตจริง ' + hm_(gm) + ' · input ' + num_(gi) + ' กก. · ผลพลอยได้ ' + num_(gb) + ' กก.' +
+          (gi > 0 && gm > 0 ? ' · ' + num_(gi / 1000 / (gm / 60)) + ' ตัน/ชม.' : ''));
+      });
     }
   }
   if (done) rows.push('ถังเก็บข้าวที่ผลิตได้: ' + list_(o.outTanks));
@@ -387,8 +421,22 @@ function orderMessages_(ch, by, out) {
       const ps = o.pauses || [], p = ps[ps.length - 1] || {};
       if (NOTIFY.orderPaused) out.push(msg_('⏸️ หยุดผลิตชั่วคราว', identRows_(o).concat([
         'เหตุผล: ' + plabel_(p), 'หยุดเมื่อ: ' + fmtDT_(p.from)]), by));
+    } else if (sNew === 'off') {
+      const offs = offsOf_(o), k = offs.length - 1, f = offs[k] || {}, g = segs_(o)[k] || {};
+      const d = segData_(o, k), gi = sumKg_(d.inputs), gb = sumKg_(d.byproducts), gm = g.to ? minsBetween_(g.from, g.to) : 0;
+      if (NOTIFY.orderOff) out.push(msg_('🚪 หยุดออกงาน', identRows_(o).concat([
+        'หยุดเมื่อ: ' + fmtDT_(f.from), f.reason ? 'เหตุผล: ' + f.reason : '',
+        'ช่วงที่ ' + (k + 1) + ' ผลิตจริง: ' + hm_(gm),
+        gb > 0 ? 'ผลพลอยได้ช่วงนี้: ' + num_(gb) + ' กก.' : '',
+        'เวลาทำงานสะสม: ' + hm_(onShiftMin_(o)),
+        '(ช่วงหยุดออกงานไม่นับเป็นเวลาสูญเสีย)']), by));
     } else if (sNew === 'done') {
       if (NOTIFY.orderDone) out.push(msg_('✅ ผลิตเสร็จ', identRows_(o).concat(summaryRows_(o)), by));
+    } else if (sOld === 'off') {
+      const offs = offsOf_(o), f = offs[offs.length - 1] || {};
+      if (NOTIFY.orderResumed) out.push(msg_('▶️ เข้างาน / เริ่มผลิตต่อ', identRows_(o).concat([
+        'เข้างานเมื่อ: ' + fmtDT_(f.to), 'เริ่มช่วงที่ ' + (offs.length + 1),
+        'หยุดออกงานไป: ' + hm_(minsBetween_(f.from, f.to)) + ' (ไม่นับเป็นเวลาสูญเสีย)']), by));
     } else if (sOld === 'paused') {
       const oldPs = old.pauses || [], idx = oldPs.length - 1, np = (o.pauses || [])[idx] || {};
       if (NOTIFY.orderResumed) out.push(msg_('▶️ เริ่มผลิตต่อ', identRows_(o).concat([
@@ -422,7 +470,7 @@ function orderMessages_(ch, by, out) {
       ['inputs', 'น้ำหนัก input', 'list']
     ]);
     if (rows.length && NOTIFY.orderEdited) {
-      out.push(msg_('✏️ แก้ไขรายการผลิต', identRows_(o).concat(['สถานะ: ' + ({ running: 'กำลังผลิต', paused: 'หยุดชั่วคราว', done: 'ผลิตเสร็จ' }[sNew])]).concat(rows), by));
+      out.push(msg_('✏️ แก้ไขรายการผลิต', identRows_(o).concat(['สถานะ: ' + ({ running: 'กำลังผลิต', paused: 'หยุดชั่วคราว', off: 'หยุดออกงาน', done: 'ผลิตเสร็จ' }[sNew])]).concat(rows), by));
     }
   }
 }
