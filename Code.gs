@@ -124,6 +124,7 @@ function doPost(e) {
     return json_({ ok: false, error: 'bad json' });
   }
   if (body && body.events) return handleLine_(body);
+  if (body && body.action === 'resend') return resend_(body);
 
   let lock = null;
   let error = null;
@@ -144,8 +145,9 @@ function doPost(e) {
   if (error) return json_({ ok: false, error: error });
 
   // แจ้งเตือน LINE หลังบันทึกเสร็จ ถ้าแจ้งไม่ได้ก็ไม่กระทบการบันทึก
+  // body.quiet = บันทึกจากหน้า "งานที่ต้องสรุป" ยังไม่แจ้ง LINE จนกว่าจะกดสรุปรายงาน + ส่ง LINE
   try {
-    notifyChanges_(changes, String(body.by || ''));
+    if (!body.quiet) notifyChanges_(changes, String(body.by || ''));
   } catch (err) {
     console.error('notify failed: ' + err);
   }
@@ -230,6 +232,7 @@ function identRows_(o) {
   return [
     'เลขที่: ' + o.no,
     o.docNo ? 'เลขที่เอกสาร: ' + o.docNo : '',
+    o.forName ? 'เพื่อทำออเดอร์: ' + o.forName : '',
     'ข้าว: ' + o.typeName + (o.code ? ' (' + o.code + ')' : ''),
     'จำนวน: ' + num_(o.qty) + ' กก.'
   ];
@@ -254,14 +257,14 @@ function summaryRows_(o) {
   if (inKg > 0) {
     rows.push('— น้ำหนัก input —');
     (o.inputs || []).forEach(function (x) {
-      if (+x.kg > 0) rows.push('• ' + (x.name || 'ไม่ระบุชื่อ') + (x.tank ? ' [' + x.tank + ']' : '') + ' ' + num_(x.kg) + ' กก. (' + pct_(x.kg, inKg) + ')');
+      if (+x.kg > 0) rows.push('• ' + (x.code ? '(' + x.code + ') ' : '') + (x.name || 'ไม่ระบุชื่อ') + (x.tank ? ' [' + x.tank + ']' : '') + (x.src ? ' จาก ' + x.src : '') + ' ' + num_(x.kg) + ' กก. (' + pct_(x.kg, inKg) + ')');
     });
     rows.push('รวม input: ' + num_(inKg) + ' กก. (' + num_(inKg / 1000, 3) + ' ตัน) = 100%');
   }
   if (done && (o.byproducts || []).length) {
     rows.push('— ผลพลอยได้ —');
     o.byproducts.forEach(function (b) {
-      rows.push('• ' + b.name + ' ' + num_(b.kg) + ' กก.' + (inKg > 0 ? ' (' + pct_(b.kg, inKg) + ')' : '') +
+      rows.push('• ' + b.name + (b.code ? ' (' + b.code + ')' : '') + (b.tank ? ' [' + b.tank + ']' : '') + ' ' + num_(b.kg) + ' กก.' + (inKg > 0 ? ' (' + pct_(b.kg, inKg) + ')' : '') +
         (b.jumbo ? ' (' + b.jumbo + ' จัมโบ้' + (b.rem ? ' + เศษ ' + num_(b.rem) : '') + ')' : ''));
     });
     rows.push('รวมผลพลอยได้: ' + num_(byKg) + ' กก.' + (inKg > 0 ? ' (' + pct_(byKg, inKg) + ' ของ input)' : ''));
@@ -328,7 +331,7 @@ function planMessages_(changes, by, out) {
     if (o.status !== 'started' && p.status !== 'started' && o.seq !== p.seq) reordered = true;
     const rows = diffRows_(o, p, [
       ['typeName', 'ชนิดข้าว', 'text'], ['qty', 'จำนวน', 'num'],
-      ['plannedDate', 'วันที่ผลิต', 'date'], ['docNo', 'เลขที่เอกสาร', 'text'], ['note', 'หมายเหตุ', 'text']
+      ['plannedDate', 'วันที่ผลิต', 'date'], ['docNo', 'เลขที่เอกสาร', 'text'], ['forName', 'เพื่อทำออเดอร์', 'text'], ['note', 'หมายเหตุ', 'text']
     ]);
     if (rows.length) edited.push({ p: p, rows: rows });
   });
@@ -421,6 +424,22 @@ function orderMessages_(ch, by, out) {
     if (rows.length && NOTIFY.orderEdited) {
       out.push(msg_('✏️ แก้ไขรายการผลิต', identRows_(o).concat(['สถานะ: ' + ({ running: 'กำลังผลิต', paused: 'หยุดชั่วคราว', done: 'ผลิตเสร็จ' }[sNew])]).concat(rows), by));
     }
+  }
+}
+
+// ส่งสรุปรายงานของรายการผลิตเข้า LINE ซ้ำ (ปุ่ม "ส่งสรุปใหม่" ในหน้าสรุปรายงาน) อ่านข้อมูลล่าสุดจากชีต
+function resend_(body) {
+  try {
+    const token = props_().getProperty('LINE_TOKEN');
+    const to = getTo_();
+    if (!token || !to.length) return json_({ ok: false, error: 'ยังไม่ได้ตั้งค่า LINE' });
+    const o = readColl_('orders').filter(function (x) { return x.id === String(body.id); })[0];
+    if (!o) return json_({ ok: false, error: 'ไม่พบรายการผลิต' });
+    const by = String(body.by || '');
+    pushLine_(token, to, [msg_(body.final ? '📋 สรุปรายงาน' : '🔄 อัปเดตสรุปรายงาน', identRows_(o).concat(summaryRows_(o)), by)]);
+    return json_({ ok: true });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
   }
 }
 

@@ -114,7 +114,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .xlw{font-family:'Cordia New',Cordia,'Noto Sans Thai',Tahoma,sans-serif;color:#000;background:#fff;width:max-content}
 .xlw .xl{border-collapse:collapse;table-layout:fixed}
 :where(.xlw .xl td){padding:0 1px;overflow:visible;white-space:pre;line-height:1.05;vertical-align:bottom}
-.xlw .xl img{width:100%;height:auto;max-height:94px;object-fit:contain;display:block}
+.xlw .xl img{width:100%;height:auto;max-height:94px;object-fit:contain;display:block;box-sizing:border-box;padding:9px 14px 9px 12px}
 .xlw .ul{display:inline-block;min-width:70px;border-bottom:1px dotted #000;text-align:center}
 /* ---- forms v3 (old, unused) ---- */
 .fm{font-family:'Cordia New',Cordia,'Noto Sans Thai',Tahoma,sans-serif;font-size:14pt;line-height:1.05;width:722px;box-sizing:border-box}
@@ -128,6 +128,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .fm .fm-h td{height:26px}.fm.blue .fm-h td{height:30px}
 .fm .fm-h .lg img{height:62px}
 @media (max-width:480px){.line.wr{grid-template-columns:1fr 1fr 36px}.line.wr>:nth-child(1){grid-column:1/-1}.line.wr>:nth-child(2){grid-column:1}.line.wr>:nth-child(3){grid-column:2/4}.line.wr>:nth-child(4){grid-column:1/3}.line.wr>:nth-child(5){grid-column:3}}
+.bdg{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;vertical-align:middle}
+.bell{position:relative}.bell .bdg{position:absolute;top:-7px;right:-7px;margin:0}
+.ntl{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto}
+.nti{padding:10px 12px;border:1px solid var(--line,#ddd);border-radius:10px;background:var(--surface)}
+.nti[data-act]{cursor:pointer}.nti.new{border-color:var(--accent,#2f7d5b);background:var(--accent-soft,#e6efe9)}
 .cat-row{display:grid;grid-template-columns:150px minmax(0,1fr) 110px auto;gap:10px;align-items:center;padding:10px 14px;border:1px solid var(--line,#ddd);border-radius:12px;background:var(--surface)}
 .cat-row .cn{font-weight:500;min-width:0;overflow-wrap:anywhere}
 @media (max-width:640px){.cat-row{grid-template-columns:1fr auto}.cat-row .cn{grid-column:1/-1;order:3}}
@@ -333,6 +338,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
   .toolbar .grow{flex:1 1 100%}
   .foot{position:sticky;bottom:0;background:var(--surface);padding-top:10px;margin-top:6px;flex-wrap:nowrap}
   .foot .btn{flex:1;white-space:normal}
+  .foot.f4{flex-wrap:wrap}.foot.f4 .btn{flex:1 1 28%}.foot.f4 .primary{flex:1 1 100%;order:-1}
   /* หน้าต่างกรอกข้อมูล: เลื่อนขึ้นจากด้านล่างเต็มความกว้าง */
   .scrim{padding:0;align-items:flex-end}
   .sheet{max-width:none;margin:0;border-radius:18px 18px 0 0;max-height:94dvh;overflow-y:auto;padding:18px 16px calc(14px + env(safe-area-inset-bottom,0px));border-bottom:0;-webkit-overflow-scrolling:touch}
@@ -355,7 +361,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
       <button class="tab" role="tab" id="tab-plans" data-act="tab" data-tab="plans">แผนการผลิต</button>
       <button class="tab" role="tab" id="tab-orders" data-act="tab" data-tab="orders">รายการผลิต</button>
       <button class="tab" role="tab" id="tab-dash" data-act="tab" data-tab="dash">แดชบอร์ด</button>
-      <button class="tab" role="tab" id="tab-sum" data-act="tab" data-tab="sum">สรุปรายงาน</button>
+      <button class="tab" role="tab" id="tab-sum" data-act="tab" data-tab="sum">งานที่ต้องสรุป</button>
       <button class="tab" role="tab" id="tab-recipes" data-act="tab" data-tab="recipes">ชนิดข้าว / สูตร</button>
       <button class="tab" role="tab" id="tab-catalog" data-act="tab" data-tab="catalog">รหัสข้าว</button>
       <button class="tab" role="tab" id="tab-users" data-act="tab" data-tab="users">ผู้ใช้งาน</button>
@@ -429,7 +435,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
     <div id="types" class="recipes"></div>
   </section>
   <section id="sum-view" class="wrap" style="gap:14px" hidden>
-    <p class="hint" style="margin:0">รายการที่ผลิตเสร็จ แก้ไข input / ผลพลอยได้ / รหัส แล้วส่งสรุปเข้า LINE หรือพิมพ์ใบรายงาน</p>
+    <p class="hint" style="margin:0">งานที่ผลิตเสร็จและรอสรุป ใส่น้ำหนัก input / รหัส / ถัง / ผลพลอยได้ / ข้อมูลใบรายงาน ในหน้านี้ที่เดียว แล้วกด “สรุปรายงาน + ส่ง LINE”</p>
     <div id="sumlist" class="recipes"></div>
   </section>
   <section id="catalog-view" class="wrap" style="gap:14px" hidden>
@@ -488,7 +494,7 @@ function pauseCat(p){
 }
 const pauseLabel=p=>p.cat?(p.cat+(p.reason?' – '+p.reason:'')):(p.reason||'');
 function lossMin(o){const end=o.status==='done'?o.endAt:nowLocal();return (o.pauses||[]).reduce((a,p)=>a+mins(p.from,p.to||end),0)}
-function upd(o,patch,drop){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d)}
+function upd(o,patch,drop,quiet){const d={...o,...patch};delete d.id;(drop||[]).forEach(k=>delete d[k]);return put('orders',o.id,d,quiet)}
 const isAdmin=()=>S.role==='admin';
 const admNameKey=()=>LS+'-admin-fullname';
 const myFullName=()=>{if(isAdmin()){try{return localStorage.getItem(admNameKey())||''}catch(e){return ''}}const u=S.users.find(x=>x.id===S.uid);return u&&u.name?String(u.name).trim():''};
@@ -518,7 +524,7 @@ function mx(o){
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
-const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],catalog:[],orders:[],filter:'all',q:'',tab:'plans'};
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],catalog:[],events:[],evInit:false,orders:[],filter:'all',q:'',tab:'plans'};
 const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
@@ -559,33 +565,39 @@ async function pull(){
   const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
   const uu=(j.settings||[]).find(x=>x.id==='users'),nl=uu&&Array.isArray(uu.list)?uu.list:[],avm={};
   (j.settings||[]).forEach(x=>{if(/^avatar-/.test(x.id)&&x.img)avm[x.id.slice(7)]=x.img});
+  {const old=new Set(S.events.map(x=>x.id));S.events=(j.settings||[]).filter(x=>/^ev-/.test(x.id)&&x.t).map(x=>({...x})).sort((a,b)=>b.t-a.t);const fresh=S.events.filter(x=>!old.has(x.id));if(S.evInit)notifyNew(fresh);S.evInit=true}
   {const cc=(j.settings||[]).find(x=>x.id==='catalog');S.catalog=cc&&Array.isArray(cc.list)?cc.list:[]}
   const usig=JSON.stringify(nl)+JSON.stringify(Object.keys(avm).sort().map(k=>k+':'+avm[k].length));
   const chg=usig!==S._usig;S._usig=usig;S.users=nl;S.avatars=avm;
   S.loaded=true;notice('');safeRender();
   if(!S.role&&chg&&!S.loginUser&&typeof showLogin==='function'&&!$('#login').hidden)showLogin();
 }
-async function putMany(ops){
+async function putMany(ops,quiet){
   try{
+    const q=quiet?{quiet:true}:{};
+    const evs=ops.flatMap(([c,i,d])=>evFor(c,(S[KEY[c]]||[]).find(x=>x.id===i),{...d,id:i}));
     ops.forEach(([c,i,d])=>localPut(c,i,d));wv++;safeRender();
-    if(!SHEET){lsSave();return true}
+    if(!SHEET){lsSave();evs.forEach(emitEv);return true}
     pending++;
     try{
-      try{if(ops.length===1){const [coll,id,data]=ops[0];await api({action:'set',coll,id,data})}else await api({action:'batch',ops:ops.map(([coll,id,data])=>({action:'set',coll,id,data}))})}
+      try{if(ops.length===1){const [coll,id,data]=ops[0];await api({action:'set',coll,id,data,...q})}else await api({action:'batch',ops:ops.map(([coll,id,data])=>({action:'set',coll,id,data})),...q})}
       catch(e){
         // Code.gs เวอร์ชันเก่ายังไม่รองรับ batch ให้บันทึกทีละรายการแทน
-        if(ops.length>1&&/bad collection|bad action|missing id/.test(e.message)){for(const [coll,id,data] of ops)await api({action:'set',coll,id,data})}
+        if(ops.length>1&&/bad collection|bad action|missing id/.test(e.message)){for(const [coll,id,data] of ops)await api({action:'set',coll,id,data,...q})}
         else throw e;
       }
     }finally{pending--;wv++}
+    evs.forEach(emitEv);
     return true;
   }catch(e){fail('บันทึกไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
-const put=(coll,id,data)=>putMany([[coll,id,data]]);
+const put=(coll,id,data,quiet)=>putMany([[coll,id,data]],quiet);
 async function del(coll,id){
   try{
+    const gone=(S[KEY[coll]]||[]).find(x=>x.id===id);
     S[KEY[coll]]=S[KEY[coll]].filter(x=>x.id!==id);wv++;safeRender();
     if(SHEET){pending++;try{await api({action:'delete',coll,id})}finally{pending--;wv++}}else lsSave();
+    if(gone&&(coll==='orders'||coll==='plans'))emitEv({k:'del',text:`🗑️ ลบ${coll==='orders'?'รายการผลิต':'แผนการผลิต'} ${gone.no||''} · ${gone.typeName||''}`,to:'all'});
     return true;
   }catch(e){fail('ลบไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
 }
@@ -613,7 +625,7 @@ async function init(){
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
     return;
   }
-  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]');S.catalog=JSON.parse(localStorage.getItem(LS+'-catalog')||'[]');S.avatars=JSON.parse(localStorage.getItem(LS+'-avatars')||'{}')}catch(e){}
+  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]');S.catalog=JSON.parse(localStorage.getItem(LS+'-catalog')||'[]');S.events=JSON.parse(localStorage.getItem(LS+'-events')||'[]');S.avatars=JSON.parse(localStorage.getItem(LS+'-avatars')||'{}')}catch(e){}
   lsLoad();render();
   notice('ยังไม่ได้ตั้งค่า API_URL ข้อมูลจะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น');
 }
@@ -628,6 +640,61 @@ function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.
 function ingDatalist(){const s=new Map();S.catalog.forEach(c=>s.set(c.name,c.code));S.types.forEach(t=>(t.formula||[]).forEach(x=>{if(!s.has(x.name))s.set(x.name,x.code||'')}));
   $('#dl-ing').innerHTML=[...s].map(([n,c])=>`<option value="${esc(n)}"${c?` label="${esc(c)}"`:''}>`).join('');
   $('#dl-code').innerHTML=S.catalog.map(c=>`<option value="${esc(c.code)}" label="${esc(c.name)}">`).join('')}
+/* ---------- in-app notifications (กล่องแจ้งเตือนในแอป) ---------- */
+const meKey=()=>isAdmin()?'admin':(S.uid||'staff');
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const ntOn=()=>lsGet(LS+'-nt-on-'+meKey())!=='0';
+const ntSeen=()=>{const v=lsGet(LS+'-nt-seen-'+meKey());if(v==null){lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));return Date.now()}return +v||0};
+const evVisible=ev=>(ev.to==='all'||(ev.to==='admin'&&isAdmin()))&&ev.actor!==meKey();
+const evMine=()=>S.events.filter(evVisible);
+const ntUnread=()=>{const t=ntSeen();return evMine().filter(x=>x.t>t).length};
+function evFor(coll,old,nw){
+  const no=nw.no||'',nm=nw.typeName||'';
+  if(coll==='plans')return old?[]:[{k:'plan',to:'all',text:`📋 แผนการผลิตใหม่ ${no} · ${nm} ${fmt(nw.qty)} กก.`}];
+  if(coll!=='orders')return [];
+  if(!old)return [{k:'start',to:'all',oid:nw.id,text:`▶️ เริ่มการผลิต ${no} · ${nm}`}];
+  const so=st(old),sn=st(nw),out=[];
+  if(so!==sn){
+    if(sn==='paused'){const p=(nw.pauses||[]).slice(-1)[0]||{};out.push({k:'pause',to:'all',oid:nw.id,text:`⏸️ หยุดผลิตชั่วคราว ${no} · ${nm}${pauseLabel(p)?' ('+pauseLabel(p)+')':''}`})}
+    else if(sn==='done'){out.push({k:'done',to:'all',oid:nw.id,text:`✅ ผลิตเสร็จ ${no} · ${nm}`},{k:'needsum',to:'admin',oid:nw.id,text:`📝 มีงานที่ต้องสรุปรายงาน ${no} · ${nm}`})}
+    else if(so==='paused')out.push({k:'resume',to:'all',oid:nw.id,text:`▶️ เริ่มผลิตต่อ ${no} · ${nm}`});
+    else if(so==='done')out.push({k:'reopen',to:'all',oid:nw.id,text:`↩️ ย้อนกลับเป็นกำลังผลิต ${no} · ${nm}`});
+  }
+  if(!old.summarized&&nw.summarized)out.push({k:'sum',to:'all',oid:nw.id,text:`📊 สรุปรายงานแล้ว ${no} · ${nm}`});
+  return out;
+}
+function emitEv(x){
+  const ev={id:'ev-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:Date.now(),k:x.k,text:x.text,to:x.to||'all',actor:meKey(),by:byName(),...(x.oid?{oid:x.oid}:{})};
+  S.events=[ev,...S.events].sort((a,b)=>b.t-a.t);
+  const extra=S.events.slice(50);
+  if(SHEET){
+    const {id,...data}=ev;
+    api({action:'set',coll:'settings',id,data,quiet:true}).catch(()=>{});
+    extra.forEach(e=>api({action:'delete',coll:'settings',id:e.id}).catch(()=>{}));
+  }
+  S.events=S.events.slice(0,50);
+  if(!SHEET)lsSet(LS+'-events',JSON.stringify(S.events));
+  try{renderWho()}catch(e){}
+}
+function notifyNew(fresh){
+  if(!S.role||!ntOn())return;
+  const mine=fresh.filter(evVisible).filter(x=>x.t>ntSeen());
+  if(!mine.length)return;
+  toast('🔔 '+mine[0].text+(mine.length>1?` (+อีก ${mine.length-1})`:''),6000);
+}
+function inboxForm(){
+  const seen=ntSeen(),L=evMine().slice(0,40),on=ntOn();
+  const tm=t=>new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  openModal(`<div class="row"><h2 style="margin:0">การแจ้งเตือน</h2><button class="btn sm" data-act="close">ปิด</button></div>
+  <label class="ck"><input type="checkbox" id="nt-on" ${on?'checked':''}> เปิดการแจ้งเตือนในแอป (แสดงจุดแดงและข้อความเด้ง)</label>
+  <div class="hint">แอปตรวจข้อมูลใหม่ทุก 30 วินาที การเปิด/ปิดมีผลเฉพาะบัญชีและอุปกรณ์เครื่องนี้ · ไม่แจ้งการกระทำของตัวเอง</div>
+  <div id="nt-list" class="ntl">${L.length?L.map(x=>`<div class="nti${x.t>seen&&on?' new':''}"${x.oid?` data-act="ev-open" data-id="${x.oid}" data-k="${x.k}" role="button" tabindex="0"`:''}><div>${esc(x.text)}</div><div class="hint">${esc(tm(x.t))}${x.by?' · โดย '+esc(x.by):''}</div></div>`).join(''):'<div class="empty"><div>ยังไม่มีการแจ้งเตือน</div></div>'}</div>`,()=>{
+    $('#nt-on').onchange=e=>{lsSet(LS+'-nt-on-'+meKey(),e.target.checked?'1':'0');if(e.target.checked)lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));renderWho();toast(e.target.checked?'เปิดการแจ้งเตือนแล้ว':'ปิดการแจ้งเตือนแล้ว')};
+    if(on)lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));
+    renderWho();
+  });
+}
 /* ---------- catalog: ฐานข้อมูลรหัส-ชื่อข้าว ---------- */
 const CAT_KINDS=['วัตถุดิบ (Input)','ผลิตภัณฑ์ (Output)','ผลพลอยได้'];
 const nrm=v=>String(v||'').trim().toLowerCase();
@@ -818,7 +885,7 @@ function pwForm(){
   });
 }
 function renderWho(){
-  $('#who').innerHTML=S.role?`<span class="role">${!isAdmin()&&S.uid?avatarHtml(S.uid,S.nick,22)+' ':''}${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':(S.uid?'<button class="btn sm" data-act="my-account">บัญชีของฉัน</button>':'')}<button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
+  $('#who').innerHTML=S.role?`<span class="role">${!isAdmin()&&S.uid?avatarHtml(S.uid,S.nick,22)+' ':''}${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</span>${isAdmin()?'<button class="btn sm" data-act="pw">เปลี่ยนรหัสผ่าน</button>':(S.uid?'<button class="btn sm" data-act="my-account">บัญชีของฉัน</button>':'')}<button class="btn sm bell" data-act="inbox" aria-label="การแจ้งเตือน">${ntOn()?'🔔':'🔕'}${ntOn()&&ntUnread()?`<span class="bdg">${ntUnread()}</span>`:''}</button><button class="btn sm" data-act="logout">ออกจากระบบ</button>`:'';
 }
 
 /* ---------- render ---------- */
@@ -830,6 +897,7 @@ function render(){
   $('#app').hidden=false;
   if(!isAdmin()&&(S.tab==='recipes'||S.tab==='users'||S.tab==='sum'||S.tab==='catalog'))S.tab='orders';
   $('#tab-recipes').hidden=!isAdmin();$('#tab-sum').hidden=!isAdmin();$('#tab-users').hidden=!isAdmin();$('#tab-catalog').hidden=!isAdmin();
+  {const n=S.orders.filter(o=>o.status==='done'&&!o.summarized).length;$('#tab-sum').innerHTML='งานที่ต้องสรุป'+(n&&isAdmin()?` <span class="bdg">${n}</span>`:'')}
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
   $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#users-view').hidden=S.tab!=='users';$('#catalog-view').hidden=S.tab!=='catalog';$('#sum-view').hidden=S.tab!=='sum';$('#dash-view').hidden=S.tab!=='dash';
   document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.pfilter?c.dataset.pfilter===S.pf:c.dataset.filter===S.filter));
@@ -891,7 +959,8 @@ function orderDetail(id){
     acts.push(`<button class="btn ${paused?'':'primary'}" data-act="record" data-id="${o.id}">ผลิตเสร็จ / บันทึกผล</button>`)}
   if(isAdmin()){
     if(done){acts.push(`<button class="btn" data-act="record" data-id="${o.id}">แก้ไขผลการผลิต</button>`,`<button class="btn" data-act="reopen" data-id="${o.id}">ย้อนกลับเป็นกำลังผลิต</button>`)}
-    acts.push(`<button class="btn" data-act="weight" data-id="${o.id}">ใส่น้ำหนัก input</button>`,`<button class="btn" data-act="edit-order" data-id="${o.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-order" data-id="${o.id}">ลบ</button>`)}
+    if(done)acts.push(`<button class="btn primary" data-act="sum-edit" data-id="${o.id}">${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</button>`);
+    acts.push(`<button class="btn" data-act="edit-order" data-id="${o.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-order" data-id="${o.id}">ลบ</button>`)}
   openModal(`<div class="row"><div><div class="no">${esc(o.no)} <span class="pill ${s}">${LABEL[s]}</span></div>
       <div class="name">${esc(o.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div>
       <div class="actions" style="margin:0"><button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์ใบรายงาน</button><button class="btn sm" data-act="close">ปิด</button></div></div>
@@ -1067,17 +1136,10 @@ function resultForm(id){
     <div class="field"><label for="r-end">เวลาผลิตเสร็จ</label><input id="r-end" type="datetime-local" value="${esc(o.endAt||nowLocal())}"></div>
   </div>
   <div class="hint" id="r-dur"></div>
-  ${isAdmin()?weightFields(o):''}
   <div class="field"><span class="lbl">ผลพลอยได้ ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>
     <div>${bpList.map((d,i)=>bpRowHtml(d,i,cur)).join('')}</div>
     <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำ ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
-  ${isAdmin()?'<div class="notice" id="r-calc" hidden></div>':''}
-  <div class="field"><span class="lbl">ข้อมูลใบรายงาน (ไม่บังคับ)</span>
-    <div class="grid2"><div><label for="r-mc" class="hint">เครื่องจักรที่</label><input id="r-mc" maxlength="10" value="${esc((o.rep||{}).machineNo||'')}"></div>
-    <div><label for="r-q" class="hint">คุณภาพการขัดสี ระดับ</label><input id="r-q" maxlength="20" value="${esc((o.rep||{}).quality||'')}"></div></div>
-    <div class="grid2"><div><label for="r-e1" class="hint">ค่าไฟฟ้า หน่วยเริ่มต้น</label><input id="r-e1" type="number" step="any" inputmode="decimal" value="${(o.rep||{}).elecFrom??''}"></div>
-    <div><label for="r-e2" class="hint">หน่วยสิ้นสุด</label><input id="r-e2" type="number" step="any" inputmode="decimal" value="${(o.rep||{}).elecTo??''}"></div></div>
-    <div><label for="r-ncr" class="hint">ข้าวติด NCR (กก.)</label><input id="r-ncr" type="number" min="0" step="any" inputmode="decimal" value="${(o.rep||{}).ncr??''}"></div></div>
+  <div class="hint">น้ำหนัก input ถัง ข้อมูลใบรายงาน และสรุปผล ทำที่แท็บ “งานที่ต้องสรุป” หลังผลิตเสร็จ</div>
   <div class="field"><label for="r-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger,#c00)">*</b></label>
     <input id="r-by" maxlength="60" value="${esc(isAdmin()?((o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName()):myFullName())}" ${isAdmin()?'placeholder="กรอกชื่อ-นามสกุลผู้รายงาน"':'readonly'}>
     ${isAdmin()?'':'<div class="hint">ใช้ชื่อ-นามสกุลจากบัญชีของคุณ (แก้ได้ที่ “บัญชีของฉัน”)</div>'}</div>
@@ -1105,7 +1167,7 @@ function resultForm(id){
       syncJumbo();
       const byproducts=[...document.querySelectorAll('.bpr')].map(r=>{const bp=r.querySelector('[data-bp]'),n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0;return{name:bp.dataset.bp,...(bp.dataset.bc?{code:bp.dataset.bc}:{}),...(cur[bp.dataset.bp]&&cur[bp.dataset.bp].tank?{tank:cur[bp.dataset.bp].tank}:{}),kg:parseFloat(bp.value)||0,...(n>0?{jumbo:n}:{}),...(m>0?{rem:m}:{})}}).filter(x=>x.kg>0);
       const pauses=(o.pauses||[]).map(p=>p.to?p:{...p,to:b});
-      if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),rep:{machineNo:$('#r-mc').value.trim(),quality:$('#r-q').value.trim(),elecFrom:$('#r-e1').value===''?'':parseFloat($('#r-e1').value),elecTo:$('#r-e2').value===''?'':parseFloat($('#r-e2').value),ncr:parseFloat($('#r-ncr').value)||0},reportBy:by,...(isAdmin()?{inputs:readWeights()}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
+      if(await upd(o,{status:'done',startAt:a,endAt:b,byproducts,pauses,resultNote:$('#r-note').value.trim(),reportBy:by,...(o.status!=='done'?{summarized:false}:{})},['outputKg'])){closeModal();toast('บันทึกผลการผลิตแล้ว')}
     };
   });
 }
@@ -1232,38 +1294,63 @@ function printPlan(id){
 /* ---------- completed-production summary (admin) ---------- */
 function renderSumPage(){
   if(!isAdmin()||S.tab!=='sum')return;
-  const L=S.orders.filter(o=>o.status==='done').sort((a,b)=>(b.endAt||'').localeCompare(a.endAt||''));
-  if(!L.length){$('#sumlist').innerHTML='<div class="empty" style="grid-column:1/-1"><div><b>ยังไม่มีรายการที่ผลิตเสร็จ</b></div></div>';return}
-  $('#sumlist').innerHTML=L.map(o=>{const m=mx(o),n=(o.byproducts||[]).filter(b=>+b.kg>0).length;
+  const D=S.orders.filter(o=>o.status==='done').sort((x,y)=>(y.endAt||'').localeCompare(x.endAt||''));
+  const P=D.filter(o=>!o.summarized),F=D.filter(o=>o.summarized);
+  const row=(o,fin)=>{const m=mx(o),n=(o.byproducts||[]).filter(b=>+b.kg>0).length;
     return `<div class="sumrow"><div class="sinfo"><b>${esc(o.typeName)}</b> <span class="code">${esc(o.no)}</span>
-      <div class="hint">${esc(dt(o.endAt))} · input ${m.hasIn?fmt(m.inKg)+' กก.':'ยังไม่ใส่'} · ผลพลอยได้ ${n} รายการ</div></div>
-      <div class="sbtn"><button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button><button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button></div></div>`}).join('');
+      <div class="hint">เสร็จ ${esc(dt(o.endAt))} · input ${m.hasIn?fmt(m.inKg)+' กก.':'ยังไม่ใส่'} · ผลพลอยได้ ${n} รายการ${fin&&o.sumAt?' · สรุปเมื่อ '+esc(dt(o.sumAt)):''}</div></div>
+      <div class="sbtn">${fin?`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button>`:`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">สรุปรายงาน</button>`}<button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button></div></div>`};
+  const h=(t,n)=>`<h3 style="margin:6px 0 0;grid-column:1/-1">${t} <span class="hint">(${n})</span></h3>`;
+  $('#sumlist').innerHTML=h('รอสรุป',P.length)+(P.length?P.map(o=>row(o,false)).join(''):'<div class="empty" style="grid-column:1/-1"><div><b>ไม่มีงานที่ต้องสรุป</b><br>เมื่อผลิตเสร็จ รายการจะมาอยู่ที่นี่</div></div>')
+    +(F.length?h('สรุปแล้ว',F.length)+F.map(o=>row(o,true)).join(''):'');
 }
-async function resendLine(id){
-  if(typeof api!=='function'){toast('ใช้ได้เฉพาะเวอร์ชันที่เชื่อม Google Sheets');return false}
-  try{await api({action:'resend',id});toast('ส่งสรุปรายงานเข้า LINE แล้ว');return true}
+async function resendLine(id,final){
+  if(!SHEET){toast('ใช้ได้เฉพาะเวอร์ชันที่เชื่อม Google Sheets');return false}
+  try{await api({action:'resend',id,...(final?{final:true}:{})});toast('ส่งสรุปรายงานเข้า LINE แล้ว');return true}
   catch(e){fail('ส่ง LINE ไม่สำเร็จ',e);return false}
 }
 function sRow(b,o){b=b||{};return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${b.tank===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
 function summaryForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||!isAdmin())return;
-  const defs=bpDefs(o),cur=(o.byproducts||[]).filter(b=>+b.kg>0);
-  openModal(`<div><h2>สรุปรายงานที่ผลิตเสร็จ</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)}</div></div>
+  const defs=bpDefs(o),cur=(o.byproducts||[]).filter(b=>+b.kg>0),r=o.rep||{};
+  const by0=(o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName();
+  openModal(`<div><h2>${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)} · เสร็จ ${esc(dt(o.endAt))}</div></div>
+  <div class="field"><label for="s-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger)">*</b></label><input id="s-by" maxlength="60" value="${esc(by0)}" placeholder="ชื่อ-นามสกุลผู้รายงาน"></div>
   ${weightFields(o)}
+  <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ผลพลอยได้ ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span><datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
     <div class="lines" id="s-bp">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
-  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn" id="s-save">บันทึก</button><button class="btn primary" id="s-save-line">บันทึก + ส่ง LINE</button></div>`,()=>{
+  <div class="field"><span class="lbl">ข้อมูลใบรายงาน</span>
+    <div class="grid2"><div><label for="s-mc" class="hint">เครื่องจักรที่</label><input id="s-mc" maxlength="10" value="${esc(r.machineNo||'')}"></div>
+    <div><label for="s-q" class="hint">คุณภาพการขัดสี ระดับ</label><input id="s-q" maxlength="20" value="${esc(r.quality||'')}"></div></div>
+    <div class="grid2"><div><label for="s-e1" class="hint">ค่าไฟฟ้า หน่วยเริ่มต้น</label><input id="s-e1" type="number" step="any" inputmode="decimal" value="${r.elecFrom??''}"></div>
+    <div><label for="s-e2" class="hint">หน่วยสิ้นสุด</label><input id="s-e2" type="number" step="any" inputmode="decimal" value="${r.elecTo??''}"></div></div>
+    <div><label for="s-ncr" class="hint">ข้าวติด NCR (กก.)</label><input id="s-ncr" type="number" min="0" step="any" inputmode="decimal" value="${r.ncr??''}"></div></div>
+  <div class="field"><label for="s-note">หมายเหตุ</label><textarea id="s-note">${esc(o.resultNote||'')}</textarea></div>
+  <div class="foot f4"><button class="btn" data-act="close">ยกเลิก</button><button class="btn" id="s-save">บันทึกร่าง</button><button class="btn" id="s-final">สรุป (ไม่ส่ง LINE)</button><button class="btn primary" id="s-save-line">สรุปรายงาน + ส่ง LINE</button></div>`,()=>{
     const rd=()=>[...document.querySelectorAll('#s-bp .sr')].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:parseFloat(r.querySelector('[data-sk]').value)||0,tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
     const sum=()=>{wSum();if(!$('#s-sum'))return;const w=readWeights().reduce((a,x)=>a+x.kg,0),by=rd(),k=by.reduce((a,x)=>a+x.kg,0);$('#s-sum').style.whiteSpace='pre-line';$('#s-sum').textContent=by.length?by.map(x=>`${x.name}${x.code?' ('+x.code+')':''}  ${fmt(x.kg)} กก.${w?' = '+pctOf(x.kg,w):''}`).join('\n')+`\nผลพลอยได้รวม ${fmt(k)} กก.${w?' · ข้าวที่ผลิตได้ '+fmt(w-k)+' กก. = '+pctOf(w-k,w):''}`:''};
     $('#sheet').addEventListener('input',sum);
-    $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim());if(d&&!c.value)c.value=d.code;sum()});
+    $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim())||catByName(n.value);if(d&&!c.value)c.value=d.code;sum()});
     sum();
-    const doSave=async(send)=>{
-      const by=rd().map(x=>{const old=cur.find(b=>b.name===x.name&&+b.kg===x.kg);return{name:x.name,...(x.code?{code:x.code}:{}),...(x.tank?{tank:x.tank}:{}),kg:x.kg,...(old&&old.jumbo?{jumbo:old.jumbo}:{}),...(old&&old.rem?{rem:old.rem}:{})}});
-      if(await upd(o,{inputs:readWeights(),byproducts:by},['outputKg'])){closeModal();toast('บันทึกสรุปรายงานแล้ว');if(send)resendLine(o.id)}
+    const doSave=async(mode)=>{
+      const by=$('#s-by').value.trim(),w=readWeights();
+      if(mode!=='draft'){
+        if(!by)return toast('กรอกชื่อ-นามสกุลผู้รายงาน');
+        if(!w.length)return toast('ใส่น้ำหนัก input อย่างน้อย 1 รายการ');
+      }
+      const bp=rd().map(x=>{const old=cur.find(b=>b.name===x.name&&+b.kg===x.kg);return{name:x.name,...(x.code?{code:x.code}:{}),...(x.tank?{tank:x.tank}:{}),kg:x.kg,...(old&&old.jumbo?{jumbo:old.jumbo}:{}),...(old&&old.rem?{rem:old.rem}:{})}});
+      const patch={inputs:w,byproducts:bp,
+        inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
+        outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
+        rep:{machineNo:$('#s-mc').value.trim(),quality:$('#s-q').value.trim(),elecFrom:$('#s-e1').value===''?'':parseFloat($('#s-e1').value),elecTo:$('#s-e2').value===''?'':parseFloat($('#s-e2').value),ncr:parseFloat($('#s-ncr').value)||0},
+        resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
+        ...(mode!=='draft'?{summarized:true,sumAt:nowLocal(),sumBy:byName()}:{})};
+      if(await upd(o,patch,['outputKg'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
     };
-    $('#s-save').onclick=()=>doSave(false);$('#s-save-line').onclick=()=>doSave(true);
+    $('#s-save').onclick=()=>doSave('draft');$('#s-final').onclick=()=>doSave('final');$('#s-save-line').onclick=()=>doSave('line');
   });
 }
 
@@ -1672,6 +1759,8 @@ document.addEventListener('click',e=>{
     case 'del-type':confirmDel('type',id);break;
     case 'seed':seed();break;
     case 'close':closeModal();break;
+    case 'inbox':inboxForm();break;
+    case 'ev-open':{const k=b.dataset.k;closeModal();if(k==='needsum'&&isAdmin())setTab('sum');else if(S.orders.some(x=>x.id===id))orderDetail(id);break}
     case 'new-cat':catForm();break;
     case 'edit-cat':catForm(id);break;
     case 'del-cat':catDel(id);break;
@@ -1679,7 +1768,7 @@ document.addEventListener('click',e=>{
     case 'add-bp':$('#t-bp').insertAdjacentHTML('beforeend',bRow());break;
     case 'add-sbp':$('#s-bp').insertAdjacentHTML('beforeend',sRow());break;
     case 'sum-edit':summaryForm(id);break;
-    case 'sum-line':resendLine(id);break;
+    case 'sum-line':resendLine(id,true);break;
     case 'add-ing':$('#t-lines').insertAdjacentHTML('beforeend',fRow());break;
     case 'fill':fillRest();break;
     case 'rm-line':{const l=b.closest('.line');l.remove();if($('#t-lines'))meter();$('#sheet').dispatchEvent(new Event('input'));break}
