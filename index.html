@@ -127,8 +127,14 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .fm td{height:21px}.fm.blue td{height:23px}
 .fm .fm-h td{height:26px}.fm.blue .fm-h td{height:30px}
 .fm .fm-h .lg img{height:62px}
+@media (max-width:480px){.line.wr{grid-template-columns:1fr 1fr 36px}.line.wr>:nth-child(1){grid-column:1/-1}.line.wr>:nth-child(2){grid-column:1}.line.wr>:nth-child(3){grid-column:2/4}.line.wr>:nth-child(4){grid-column:1/3}.line.wr>:nth-child(5){grid-column:3}}
+.cat-row{display:grid;grid-template-columns:150px minmax(0,1fr) 110px auto;gap:10px;align-items:center;padding:10px 14px;border:1px solid var(--line,#ddd);border-radius:12px;background:var(--surface)}
+.cat-row .cn{font-weight:500;min-width:0;overflow-wrap:anywhere}
+@media (max-width:640px){.cat-row{grid-template-columns:1fr auto}.cat-row .cn{grid-column:1/-1;order:3}}
 @media print{
   @page{size:A4;margin:0}
+  .fm td,.fm th{-webkit-text-stroke:.4px currentColor}
+  body.print-dash #app,body.print-dash #print-head,body.print-order #sheet{-webkit-text-stroke:.3px currentColor}
   body.print-doc #print-doc{padding:0}
   body.print-dash #app,body.print-dash #print-head{padding-left:12mm;padding-right:12mm;box-decoration-break:clone;-webkit-box-decoration-break:clone}
   body.print-dash #print-head{padding-top:12mm}
@@ -274,7 +280,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .chart .bars i{display:block;width:40%;max-width:22px;border-radius:3px 3px 0 0;min-height:0}
 .chart .lb{font-size:11px;color:var(--muted);height:14px;white-space:nowrap}
 .legend{display:flex;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
-.line.wr{grid-template-columns:minmax(0,1fr) 92px 104px 36px}
+.line.wr{grid-template-columns:minmax(0,1fr) 130px 92px 104px 36px}
 .line.wr>[data-ws]{grid-column:1/-1}
 .line.fr{grid-template-columns:minmax(0,1fr) 170px 84px 36px}
 .line.br{grid-template-columns:minmax(0,1fr) 170px 36px}
@@ -351,6 +357,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
       <button class="tab" role="tab" id="tab-dash" data-act="tab" data-tab="dash">แดชบอร์ด</button>
       <button class="tab" role="tab" id="tab-sum" data-act="tab" data-tab="sum">สรุปรายงาน</button>
       <button class="tab" role="tab" id="tab-recipes" data-act="tab" data-tab="recipes">ชนิดข้าว / สูตร</button>
+      <button class="tab" role="tab" id="tab-catalog" data-act="tab" data-tab="catalog">รหัสข้าว</button>
       <button class="tab" role="tab" id="tab-users" data-act="tab" data-tab="users">ผู้ใช้งาน</button>
     </div>
     <div id="who" class="who"></div>
@@ -425,6 +432,15 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
     <p class="hint" style="margin:0">รายการที่ผลิตเสร็จ แก้ไข input / ผลพลอยได้ / รหัส แล้วส่งสรุปเข้า LINE หรือพิมพ์ใบรายงาน</p>
     <div id="sumlist" class="recipes"></div>
   </section>
+  <section id="catalog-view" class="wrap" style="gap:14px" hidden>
+    <div class="row" style="align-items:center;flex-wrap:wrap;gap:8px">
+      <p class="hint" style="margin:0;flex:1 1 240px">ฐานข้อมูลรหัส–ชื่อข้าว ใช้เติมรหัสอัตโนมัติในช่องน้ำหนัก input / สูตร / ผลพลอยได้ และแสดงในใบรายงาน</p>
+      <button class="btn" data-act="cat-import">นำเข้าจากสูตรที่มี</button>
+      <button class="btn primary" data-act="new-cat">+ เพิ่มรหัส</button>
+    </div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><input id="cat-q" type="search" placeholder="ค้นหารหัสหรือชื่อ" aria-label="ค้นหารหัสข้าว" style="flex:1 1 200px"><select id="cat-k" aria-label="ประเภท"><option value="">ทุกประเภท</option><option>วัตถุดิบ (Input)</option><option>ผลิตภัณฑ์ (Output)</option><option>ผลพลอยได้</option></select><span class="hint" id="cat-count"></span></div>
+    <div id="catalog" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
   <section id="users-view" class="wrap" style="gap:14px" hidden>
     <div class="row" style="align-items:center">
       <p class="hint" style="margin:0">จัดการรายชื่อพนักงาน ชื่อเล่นจะให้เลือกตอนเข้าใช้งาน และแสดงในข้อความแจ้งเตือนทาง LINE</p>
@@ -438,7 +454,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
 <div id="login" class="scrim" style="z-index:40" hidden></div>
 <div id="modal" class="scrim" hidden><div id="sheet" class="sheet" role="dialog" aria-modal="true"></div></div>
 <div id="toast" class="toast" hidden></div>
-<datalist id="dl-ing"></datalist>
+<datalist id="dl-ing"></datalist><datalist id="dl-code"></datalist>
 <datalist id="dl-why"><option value="เครื่องจักรขัดข้อง"><option value="ไฟฟ้าดับ"><option value="รอวัตถุดิบ"><option value="พักเบรก"><option value="ทำความสะอาด / ปรับเครื่อง"><option value="เปลี่ยนตะแกรง"></datalist>
 
 <script>
@@ -487,7 +503,7 @@ const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.
 const MONL=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const DOW=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 const tn=kg=>Number((kg||0)/1000).toLocaleString('th-TH',{maximumFractionDigits:3});
-const inputsOf=o=>(o.inputs||[]).map(x=>({name:x.name||'',tank:x.tank||'',kg:x.kg,src:x.src||''}));
+const inputsOf=o=>(o.inputs||[]).map(x=>({name:x.name||'',code:x.code||'',tank:x.tank||'',kg:x.kg,src:x.src||''}));
 const tankTags=a=>(a||[]).length?a.map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—';
 const inTanksOf=o=>o.inTanks&&o.inTanks.length?o.inTanks:[...new Set(inputsOf(o).map(r=>r.tank).filter(Boolean))];
 function mx(o){
@@ -502,7 +518,7 @@ function mx(o){
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
-const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],orders:[],filter:'all',q:'',tab:'plans'};
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',ptype:'',pq:'',types:[],catalog:[],orders:[],filter:'all',q:'',tab:'plans'};
 const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
@@ -543,6 +559,7 @@ async function pull(){
   const a=(j.settings||[]).find(x=>x.id==='admin');S.adminHash=a?a.hash:null;
   const uu=(j.settings||[]).find(x=>x.id==='users'),nl=uu&&Array.isArray(uu.list)?uu.list:[],avm={};
   (j.settings||[]).forEach(x=>{if(/^avatar-/.test(x.id)&&x.img)avm[x.id.slice(7)]=x.img});
+  {const cc=(j.settings||[]).find(x=>x.id==='catalog');S.catalog=cc&&Array.isArray(cc.list)?cc.list:[]}
   const usig=JSON.stringify(nl)+JSON.stringify(Object.keys(avm).sort().map(k=>k+':'+avm[k].length));
   const chg=usig!==S._usig;S._usig=usig;S.users=nl;S.avatars=avm;
   S.loaded=true;notice('');safeRender();
@@ -596,7 +613,7 @@ async function init(){
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
     return;
   }
-  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]');S.avatars=JSON.parse(localStorage.getItem(LS+'-avatars')||'{}')}catch(e){}
+  try{S.adminHash=localStorage.getItem(LS+'-admin')||null;S.users=JSON.parse(localStorage.getItem(LS+'-users')||'[]');S.catalog=JSON.parse(localStorage.getItem(LS+'-catalog')||'[]');S.avatars=JSON.parse(localStorage.getItem(LS+'-avatars')||'{}')}catch(e){}
   lsLoad();render();
   notice('ยังไม่ได้ตั้งค่า API_URL ข้อมูลจะเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น');
 }
@@ -608,7 +625,70 @@ function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex
 function orderNo(){const p='SP-B026-';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
 function openModal(html,mount){$('#sheet').innerHTML=html;$('#modal').hidden=false;document.body.style.overflow='hidden';if(mount)mount();const f=$('#sheet input:not([readonly]),#sheet select');if(f&&!f.value)f.focus()}
 function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.body.style.overflow=''}
-function ingDatalist(){const s=new Set();S.types.forEach(t=>(t.formula||[]).forEach(x=>s.add(x.name)));$('#dl-ing').innerHTML=[...s].map(v=>`<option value="${esc(v)}">`).join('')}
+function ingDatalist(){const s=new Map();S.catalog.forEach(c=>s.set(c.name,c.code));S.types.forEach(t=>(t.formula||[]).forEach(x=>{if(!s.has(x.name))s.set(x.name,x.code||'')}));
+  $('#dl-ing').innerHTML=[...s].map(([n,c])=>`<option value="${esc(n)}"${c?` label="${esc(c)}"`:''}>`).join('');
+  $('#dl-code').innerHTML=S.catalog.map(c=>`<option value="${esc(c.code)}" label="${esc(c.name)}">`).join('')}
+/* ---------- catalog: ฐานข้อมูลรหัส-ชื่อข้าว ---------- */
+const CAT_KINDS=['วัตถุดิบ (Input)','ผลิตภัณฑ์ (Output)','ผลพลอยได้'];
+const nrm=v=>String(v||'').trim().toLowerCase();
+const catByCode=c=>S.catalog.find(x=>nrm(x.code)===nrm(c));
+const catByName=n=>S.catalog.find(x=>nrm(x.name)===nrm(n));
+function codeFor(n){if(!n)return '';const c=catByName(n);if(c)return c.code;
+  for(const t of S.types){const f=(t.formula||[]).find(x=>nrm(x.name)===nrm(n)&&x.code);if(f)return f.code;const b=(t.bp||[]).find(x=>nrm(x.name)===nrm(n)&&x.code);if(b)return b.code}
+  return ''}
+async function saveCatalog(list){
+  const old=S.catalog;S.catalog=list;wv++;
+  if(SHEET){pending++;try{await api({action:'set',coll:'settings',id:'catalog',data:{list}})}catch(e){S.catalog=old;throw e}finally{pending--;wv++}}
+  else{try{localStorage.setItem(LS+'-catalog',JSON.stringify(list))}catch(e){}}
+}
+function renderCatalog(){
+  if(!isAdmin()||S.tab!=='catalog')return;
+  const q=nrm(($('#cat-q')||{}).value),k=($('#cat-k')||{}).value||'';
+  const all=[...S.catalog].sort((a,b)=>String(a.code).localeCompare(String(b.code),'en'));
+  const rows=all.filter(c=>(!k||c.kind===k)&&(!q||nrm(c.code).includes(q)||nrm(c.name).includes(q)));
+  $('#cat-count').textContent=`ทั้งหมด ${all.length} รายการ${rows.length!==all.length?' · แสดง '+rows.length:''}`;
+  $('#catalog').innerHTML=!all.length?`<div class="empty"><div><b>ยังไม่มีรหัสข้าวในฐานข้อมูล</b><br>กด “+ เพิ่มรหัส” หรือ “นำเข้าจากสูตรที่มี” เพื่อดึงรหัสจากชนิดข้าว/สูตรที่บันทึกไว้</div></div>`
+   :rows.length?rows.map(c=>`<div class="cat-row"><span class="code">${esc(c.code)}</span><span class="cn">${esc(c.name)}</span><span class="hint">${esc(c.kind||'')}</span><span class="actions" style="margin:0"><button class="btn sm" data-act="edit-cat" data-id="${c.id}">แก้ไข</button><button class="btn sm danger" data-act="del-cat" data-id="${c.id}">ลบ</button></span></div>`).join(''):'<div class="empty"><div>ไม่พบรายการที่ค้นหา</div></div>';
+}
+function catForm(id){
+  const c=id?S.catalog.find(x=>x.id===id):null;
+  openModal(`<h2>${c?'แก้ไขรหัสข้าว':'เพิ่มรหัสข้าว'}</h2>
+  <div class="field"><label for="c-code">รหัส</label><input id="c-code" maxlength="40" value="${esc(c?c.code:'')}" placeholder="เช่น W6MBP101"></div>
+  <div class="field"><label for="c-name">ชื่อข้าว</label><input id="c-name" maxlength="120" value="${esc(c?c.name:'')}" placeholder="เช่น ปลายเบอร์ 1"></div>
+  <div class="field"><label for="c-kind">ประเภท</label><select id="c-kind">${CAT_KINDS.map(x=>`<option ${c&&c.kind===x?'selected':''}>${x}</option>`).join('')}</select></div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="c-save">บันทึก</button></div>`,()=>{
+    $('#c-save').onclick=async()=>{
+      const code=$('#c-code').value.trim(),name=$('#c-name').value.trim();
+      if(!code)return toast('กรอกรหัส');if(!name)return toast('กรอกชื่อข้าว');
+      if(S.catalog.some(x=>x.id!==(c&&c.id)&&nrm(x.code)===nrm(code)))return toast('รหัสนี้มีอยู่ในฐานข้อมูลแล้ว');
+      const rec={id:c?c.id:uid(),code,name,kind:$('#c-kind').value};
+      try{await saveCatalog(c?S.catalog.map(x=>x.id===c.id?rec:x):[...S.catalog,rec]);closeModal();toast('บันทึกรหัสข้าวแล้ว');render()}catch(e){fail('บันทึกไม่สำเร็จ',e)}
+    };
+  });
+}
+function catDel(id){
+  const c=S.catalog.find(x=>x.id===id);if(!c)return;
+  openModal(`<h2>ลบรหัสข้าว</h2><p style="margin:0">ต้องการลบ <b>${esc(c.code)}</b> ${esc(c.name)} ออกจากฐานข้อมูลใช่หรือไม่ (ข้อมูลในใบสั่งผลิต/ใบรายงานที่บันทึกไว้แล้วไม่เปลี่ยน)</p>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn danger solid" id="d-ok">ยืนยันลบ</button></div>`,()=>{
+    $('#d-ok').onclick=async()=>{try{await saveCatalog(S.catalog.filter(x=>x.id!==id));closeModal();toast('ลบรหัสข้าวแล้ว');render()}catch(e){fail('ลบไม่สำเร็จ',e)}};
+  });
+}
+async function catImport(){
+  const found=new Map(),add=(code,name,kind)=>{code=String(code||'').trim();name=String(name||'').trim();if(!code||!name)return;if(!found.has(nrm(code)))found.set(nrm(code),{code,name,kind})};
+  S.types.forEach(t=>{add(t.code,t.name,CAT_KINDS[1]);(t.formula||[]).forEach(x=>add(x.code,x.name,CAT_KINDS[0]));(t.bp||[]).forEach(x=>add(x.code,x.name,CAT_KINDS[2]))});
+  FIXED_OUT.forEach(([n,c])=>add(c,n,CAT_KINDS[2]));
+  S.orders.forEach(o=>{(o.inputs||[]).forEach(x=>add(x.code,x.name,CAT_KINDS[0]));(o.byproducts||[]).forEach(x=>add(x.code,x.name,CAT_KINDS[2]))});
+  const fresh=[...found.values()].filter(x=>!catByCode(x.code)).map(x=>({id:uid(),...x}));
+  if(!fresh.length)return toast('ไม่มีรหัสใหม่ให้นำเข้า');
+  try{await saveCatalog([...S.catalog,...fresh]);toast(`นำเข้า ${fresh.length} รายการแล้ว`);render()}catch(e){fail('นำเข้าไม่สำเร็จ',e)}
+}
+/* เติมรหัส/ชื่ออัตโนมัติจากฐานข้อมูลเมื่อเลือกชื่อหรือรหัส */
+document.addEventListener('change',e=>{
+  const t=e.target;if(!t||!t.matches||!t.closest('#sheet'))return;const row=t.closest('.line');if(!row)return;
+  if(t.matches('[data-nm]')){const c=row.querySelector('[data-cd]');if(c&&(!c.value.trim()||c.dataset.auto==='1')){const k=codeFor(t.value);c.value=k;c.dataset.auto=k?'1':''}}
+  else if(t.matches('[data-cd]')){const n=row.querySelector('[data-nm]');if(n&&!n.value.trim()){const x=catByCode(t.value);if(x){n.value=x.name;n.dispatchEvent(new Event('input',{bubbles:true}))}}}
+});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-cd]'))t.dataset.auto=''});
 
 /* ---------- login ---------- */
 const AV_COLORS=['#2E6B4F','#1F6F8B','#8B5E1F','#6B3FA0','#B03A48','#3C6E71','#7A6A1E','#4B5FB3'];
@@ -748,12 +828,12 @@ function render(){
   renderWho();
   if(!S.role){$('#app').hidden=true;if($('#login').hidden)showLogin();return}
   $('#app').hidden=false;
-  if(!isAdmin()&&(S.tab==='recipes'||S.tab==='users'||S.tab==='sum'))S.tab='orders';
-  $('#tab-recipes').hidden=!isAdmin();$('#tab-sum').hidden=!isAdmin();$('#tab-users').hidden=!isAdmin();
+  if(!isAdmin()&&(S.tab==='recipes'||S.tab==='users'||S.tab==='sum'||S.tab==='catalog'))S.tab='orders';
+  $('#tab-recipes').hidden=!isAdmin();$('#tab-sum').hidden=!isAdmin();$('#tab-users').hidden=!isAdmin();$('#tab-catalog').hidden=!isAdmin();
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
-  $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#users-view').hidden=S.tab!=='users';$('#sum-view').hidden=S.tab!=='sum';$('#dash-view').hidden=S.tab!=='dash';
+  $('#plans-view').hidden=S.tab!=='plans';$('#orders-view').hidden=S.tab!=='orders';$('#recipes-view').hidden=S.tab!=='recipes';$('#users-view').hidden=S.tab!=='users';$('#catalog-view').hidden=S.tab!=='catalog';$('#sum-view').hidden=S.tab!=='sum';$('#dash-view').hidden=S.tab!=='dash';
   document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.pfilter?c.dataset.pfilter===S.pf:c.dataset.filter===S.filter));
-  ingDatalist();renderSummary();renderOrders();renderPlans();renderTypes();renderUsers();renderSumPage();if(S.tab==='dash')renderDash();
+  ingDatalist();renderSummary();renderOrders();renderPlans();renderTypes();renderUsers();renderCatalog();renderSumPage();if(S.tab==='dash')renderDash();
 }
 function renderSummary(){
   const c={running:0,paused:0,done:0};let loss=0;
@@ -797,7 +877,7 @@ function orderDetail(id){
   const pl=pauses.map((p,i)=>`<div class="kv"><span>${esc(pauseLabel(p)||'ไม่ระบุเหตุผล')}<br><span class="hint">${dt(p.from)} – ${p.to?dt(p.to):'ยังหยุดอยู่'}</span></span><span><b>${hm(mins(p.from,p.to||endRef))}</b>${isAdmin()?` <button class="x" style="height:24px;font-size:15px" data-act="del-pause" data-id="${o.id}" data-i="${i}" aria-label="ลบรายการหยุด">×</button>`:''}</span></div>`).join('');
   const bp=o.byproducts||[];
   const m=mx(o);
-  const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก. · '+pctOf(r.kg,m.inKg):'—'}</b></div>`).join('');
+  const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${r.code?`<span class="code">${esc(r.code)}</span> `:''}${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก. · '+pctOf(r.kg,m.inKg):'—'}</b></div>`).join('');
   const calcBlock=`<div><h3 class="lbl" style="margin-bottom:6px">น้ำหนัก input และถัง</h3>${inRows||'<div class="hint">ยังไม่มีน้ำหนัก input</div>'}
     <div class="kv"><span>ถัง input</span><b>${tankTags(inTanksOf(o))}</b></div>
     <div class="kv"><span>ถังเก็บข้าวที่ผลิตได้</span><b>${(o.outTanks||[]).length?(o.outTanks||[]).map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—'}</b></div></div>
@@ -908,12 +988,12 @@ function orderForm(id,planId){
 }
 
 /* ---------- input weights (admin only, free list) ---------- */
-function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><select data-wt aria-label="ถัง input"><option value="">ไม่ระบุถัง</option>${IN_TANKS.map(k=>`<option ${r.tank===k?'selected':''}>${k}</option>`).join('')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><input data-ws placeholder="สถานที่มา (ไม่บังคับ)" aria-label="สถานที่มา" value="${esc(r.src||'')}"></div>`}
+function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn data-nm placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><input list="dl-code" data-wc data-cd placeholder="รหัส" aria-label="รหัสข้าว" value="${esc(r.code||'')}"><select data-wt aria-label="ถัง input"><option value="">ไม่ระบุถัง</option>${IN_TANKS.map(k=>`<option ${r.tank===k?'selected':''}>${k}</option>`).join('')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><input data-ws placeholder="สถานที่มา (ไม่บังคับ)" aria-label="สถานที่มา" value="${esc(r.src||'')}"></div>`}
 function weightFields(o){
   const rows=inputsOf(o).filter(r=>+r.kg>0);
   return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum"></div></div>`;
 }
-function readWeights(){return[...document.querySelectorAll('#w-rows .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',tank:r.querySelector('[data-wt]').value,kg:parseFloat(r.querySelector('[data-wk]').value)||0,...(r.querySelector('[data-ws]').value.trim()?{src:r.querySelector('[data-ws]').value.trim()}:{})})).filter(x=>x.kg>0)}
+function readWeights(){return[...document.querySelectorAll('#w-rows .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',...(r.querySelector('[data-wc]').value.trim()?{code:r.querySelector('[data-wc]').value.trim()}:{}),tank:r.querySelector('[data-wt]').value,kg:parseFloat(r.querySelector('[data-wk]').value)||0,...(r.querySelector('[data-ws]').value.trim()?{src:r.querySelector('[data-ws]').value.trim()}:{})})).filter(x=>x.kg>0)}
 function wSum(){const el=$('#w-sum');if(!el)return;el.style.whiteSpace='pre-line';
   const rows=[...document.querySelectorAll('#w-rows .wr')].map(r=>({n:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',kg:parseFloat(r.querySelector('[data-wk]').value)||0})).filter(x=>x.kg>0);
   const k=rows.reduce((a,x)=>a+x.kg,0);
@@ -1031,9 +1111,9 @@ function resultForm(id){
 }
 
 /* ---------- rice type + formula ---------- */
-function bRow(x){return `<div class="line br"><input placeholder="เช่น ปลายเบอร์ 1" aria-label="ชื่อผลพลอยได้" value="${esc(x?x.name:'')}"><input placeholder="รหัส เช่น W6MBP101" aria-label="รหัสผลพลอยได้" value="${esc(x&&x.code?x.code:'')}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+function bRow(x){return `<div class="line br"><input list="dl-ing" data-nm placeholder="เช่น ปลายเบอร์ 1" aria-label="ชื่อผลพลอยได้" value="${esc(x?x.name:'')}"><input list="dl-code" data-cd placeholder="รหัส เช่น W6MBP101" aria-label="รหัสผลพลอยได้" value="${esc(x&&x.code?x.code:'')}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
 function readBp(){return[...document.querySelectorAll('#t-bp .line')].map(r=>{const i=r.querySelectorAll('input');return{name:i[0].value.trim(),code:i[1].value.trim()}}).filter(x=>x.name||x.code)}
-function fRow(x){return `<div class="line fr"><input list="dl-ing" placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+function fRow(x){return `<div class="line fr"><input list="dl-ing" data-nm placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input list="dl-code" data-cd placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
 /* ---------- print / PDF ---------- */
 function printHeadHtml(title,sub){
   const who=isAdmin()?'ธุรการ':(S.nick||'พนักงาน'),t=new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
@@ -1099,7 +1179,7 @@ function reportDocHtml(o){
   V.N10=e(r.machineNo||'');V.N11=m.rate!=null?fmt(m.rate):'';V.N12=o.startAt?fmDT(o.startAt)+' น.':'';V.N13=m.done?fmDT(o.endAt)+' น.':'';
   V.N14=dep?m.total:'';V.N15=dep?(m.total/60).toFixed(2):'';
   V.U11=pcs(m.good);V.U12=pcs(m.avail);V.U13=pcs(m.util);V.U14=pcs(m.oee);
-  inputsOf(o).filter(x=>+x.kg>0).slice(0,6).forEach((x,i)=>{const r0=18+i;V['K'+r0]=e(fcode(x.name));V['M'+r0]=e(x.name);V['P'+r0]=e(x.src||'');V['Q'+r0]=fmt(x.kg);V['R'+r0]=pctOf(x.kg,m.inKg);V['S'+r0]=e(x.tank||'')});
+  inputsOf(o).filter(x=>+x.kg>0).slice(0,6).forEach((x,i)=>{const r0=18+i;V['K'+r0]=e(x.code||fcode(x.name)||codeFor(x.name));V['M'+r0]=e(x.name);V['P'+r0]=e(x.src||'');V['Q'+r0]=fmt(x.kg);V['R'+r0]=pctOf(x.kg,m.inKg);V['S'+r0]=e(x.tank||'')});
   V.M24=e(o.forName||'');if(m.hasIn){V.Q24=fmt(m.inKg);V.R24='100%'}
   const bps=(o.byproducts||[]).filter(b=>+b.kg>0),fixedNames=FIXED_OUT.map(x=>x[0]);
   const bpTxt=b=>b.jumbo?` (${b.jumbo} จัมโบ้${b.rem?' + เศษ '+fmt(b.rem):''})`:'';
@@ -1537,10 +1617,10 @@ async function seed(){
 }
 
 /* ---------- events ---------- */
-function setTab(t){if((t==='recipes'||t==='users'||t==='sum')&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
+function setTab(t){if((t==='recipes'||t==='users'||t==='sum'||t==='catalog')&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
 document.addEventListener('click',e=>{
   const ch=e.target.closest('.chip');if(ch){if(ch.dataset.pfilter)S.pf=ch.dataset.pfilter;else S.filter=ch.dataset.filter;render();return}
-  if(e.target.id==='modal'){closeModal();return}
+  if(e.target.id==='modal')return; // กดนอกหน้าต่างไม่ปิด ต้องกดปุ่มยกเลิก/ปิดเท่านั้น
   const b=e.target.closest('[data-act]');if(!b)return;
   const id=b.dataset.id;
   const act=b.dataset.act;
@@ -1592,6 +1672,10 @@ document.addEventListener('click',e=>{
     case 'del-type':confirmDel('type',id);break;
     case 'seed':seed();break;
     case 'close':closeModal();break;
+    case 'new-cat':catForm();break;
+    case 'edit-cat':catForm(id);break;
+    case 'del-cat':catDel(id);break;
+    case 'cat-import':catImport();break;
     case 'add-bp':$('#t-bp').insertAdjacentHTML('beforeend',bRow());break;
     case 'add-sbp':$('#s-bp').insertAdjacentHTML('beforeend',sRow());break;
     case 'sum-edit':summaryForm(id);break;
@@ -1601,8 +1685,8 @@ document.addEventListener('click',e=>{
     case 'rm-line':{const l=b.closest('.line');l.remove();if($('#t-lines'))meter();$('#sheet').dispatchEvent(new Event('input'));break}
   }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
 $('#q').addEventListener('input',e=>{S.q=e.target.value;renderOrders()});
+$('#cat-q').addEventListener('input',renderCatalog);$('#cat-k').addEventListener('change',renderCatalog);
 $('#ptype').addEventListener('change',e=>{S.ptype=e.target.value;renderPlans()});
 $('#pq').addEventListener('input',e=>{S.pq=e.target.value;renderPlans()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('div.orow[data-act]'))e.target.click()});
@@ -1611,7 +1695,7 @@ $('#d-date').addEventListener('change',e=>{if(e.target.value){S.dash.ref=new Dat
 $('#d-type').addEventListener('change',e=>{S.dash.type=e.target.value;renderDash()});
 $('#d-status').addEventListener('change',e=>{S.dash.status=e.target.value;renderDash()});
 $('#d-q').addEventListener('input',e=>{S.dash.q=e.target.value;renderDash()});
-addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((h==='plans'||h==='orders'||h==='recipes'||h==='dash'||(h==='sum'&&isAdmin()))&&h!==S.tab){S.tab=h;render()}});
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if((h==='plans'||h==='orders'||h==='recipes'||h==='dash'||((h==='sum'||h==='catalog')&&isAdmin()))&&h!==S.tab){S.tab=h;render()}});
 {const h=location.hash.slice(1);if(h==='plans'||h==='orders'||h==='recipes'||h==='dash')S.tab=h}
 setInterval(()=>{if(S.role&&$('#modal').hidden){if(S.tab==='orders'){renderSummary();renderOrders()}else if(S.tab==='plans')renderPlans();else if(S.tab==='dash')renderDash()}},60000);
 init();
