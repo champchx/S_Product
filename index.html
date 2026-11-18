@@ -544,7 +544,7 @@ function segShares(o){
 }
 const r2=v=>Math.round(v*100)/100;
 const cumSh=(sh,i)=>sh.slice(0,i).reduce((a,b)=>a+b,0);
-const splitKg=(kg,sh,i)=>{const c0=cumSh(sh,i),c1=i===sh.length-1?1:c0+sh[i],k=+kg||0;return r2(r2(k*c1)-r2(k*c0))};
+const splitKg=(kg,sh,i)=>{const c0=cumSh(sh,i),c1=i===sh.length-1?1:c0+sh[i],k=+kg||0;return Math.round(k*c1)-Math.round(k*c0)}; /* น้ำหนักเป็นจำนวนเต็ม แบ่งแบบสะสม ผลรวมทุกช่วงเท่ายอดรวมพอดี */
 function splitData(o,i,t){
   const sh=segShares(o),last=i===sh.length-1;
   const sp=arr=>(arr||[]).map(x=>{const y={...x};delete y.jumbo;delete y.rem;y.kg=splitKg(x.kg,sh,i);return y}).filter(x=>x.kg>0);
@@ -570,7 +570,7 @@ const byName=()=>S.role==='admin'?'ธุรการ':(S.role?(S.nick?S.nick+' 
 const JUMBO_FULL={'รำ':703},JUMBO_DEFAULT=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) แยกตามผลพลอยได้ และน้ำหนักหักต่อใบ เศษนับเป็น 1 ใบ
 const jumboKg=name=>JUMBO_FULL[name]||JUMBO_DEFAULT;
 const jumboBags=(n,r)=>n+(r>0?1:0);
-const jumboNet=(n,r,name)=>jumboKg(name)*n+r-JUMBO_TARE*jumboBags(n,r);
+const jumboNet=(n,r,name)=>Math.round(jumboKg(name)*n+r-JUMBO_TARE*jumboBags(n,r));
 const IN_TANKS=['AA02','AA03','AA08','A1A1'];
 const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -823,7 +823,9 @@ async function catImport(){
 }
 /* เติมรหัส/ชื่ออัตโนมัติจากฐานข้อมูลเมื่อเลือกชื่อหรือรหัส */
 document.addEventListener('change',e=>{
-  const t=e.target;if(!t||!t.matches||!t.closest('#sheet'))return;const row=t.closest('.line');if(!row)return;
+  const t=e.target;if(!t||!t.matches||!t.closest('#sheet'))return;
+  if(t.matches('[data-wk],[data-sk],[data-bp],#s-ncr')&&t.value!==''&&!t.readOnly){const v=Math.round(parseFloat(t.value));if(!isNaN(v))t.value=v}
+  const row=t.closest('.line');if(!row)return;
   if(t.matches('[data-nm]')){const c=row.querySelector('[data-cd]');if(c&&(!c.value.trim()||c.dataset.auto==='1')){const k=codeFor(t.value);c.value=k;c.dataset.auto=k?'1':''}}
   else if(t.matches('[data-cd]')){const n=row.querySelector('[data-nm]');if(n&&!n.value.trim()){const x=catByCode(t.value);if(x){n.value=x.name;n.dispatchEvent(new Event('input',{bubbles:true}))}}}
 });
@@ -1148,9 +1150,9 @@ function weightFields(o,i,src){
   const rows=(src||inputsOf(o)).filter(r=>+r.kg>0),sx=i==null?'':'-'+i;
   return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows${sx}">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w" data-t="#w-rows${sx}">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum${sx}"></div></div>`;
 }
-function readWeights(sel){return[...document.querySelectorAll((sel||'#w-rows')+' .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',...(r.querySelector('[data-wc]').value.trim()?{code:r.querySelector('[data-wc]').value.trim()}:{}),tank:r.querySelector('[data-wt]').value,kg:parseFloat(r.querySelector('[data-wk]').value)||0,...(r.querySelector('[data-ws]').value.trim()?{src:r.querySelector('[data-ws]').value.trim()}:{})})).filter(x=>x.kg>0)}
+function readWeights(sel){return[...document.querySelectorAll((sel||'#w-rows')+' .wr')].map(r=>({name:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',...(r.querySelector('[data-wc]').value.trim()?{code:r.querySelector('[data-wc]').value.trim()}:{}),tank:r.querySelector('[data-wt]').value,kg:Math.round(parseFloat(r.querySelector('[data-wk]').value)||0),...(r.querySelector('[data-ws]').value.trim()?{src:r.querySelector('[data-ws]').value.trim()}:{})})).filter(x=>x.kg>0)}
 function wSum(){const el=$('#w-sum');if(!el)return;el.style.whiteSpace='pre-line';
-  const rows=[...document.querySelectorAll('#w-rows .wr')].map(r=>({n:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',kg:parseFloat(r.querySelector('[data-wk]').value)||0})).filter(x=>x.kg>0);
+  const rows=[...document.querySelectorAll('#w-rows .wr')].map(r=>({n:r.querySelector('[data-wn]').value.trim()||'ไม่ระบุชื่อ',kg:Math.round(parseFloat(r.querySelector('[data-wk]').value)||0)})).filter(x=>x.kg>0);
   const k=rows.reduce((a,x)=>a+x.kg,0);
   el.textContent=k?rows.map(x=>`${x.n}  ${fmt(x.kg)} กก. = ${pctOf(x.kg,k)}`).join('\n')+`\nน้ำหนัก input รวม ${fmt(k)} กก. (${tn(k)} ตัน) = 100%`:''}
 function weightForm(id){
@@ -1202,7 +1204,7 @@ function resumeForm(id){
 /* ---------- หยุดออกงาน / เข้างาน (ไม่นับเป็นเวลาสูญเสีย แบ่งช่วงการผลิต) ---------- */
 function readBps(cur){
   syncJumbo();
-  return [...document.querySelectorAll('.bpr')].map(r=>{const bp=r.querySelector('[data-bp]'),n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0;return{name:bp.dataset.bp,...(bp.dataset.bc?{code:bp.dataset.bc}:{}),...(cur[bp.dataset.bp]&&cur[bp.dataset.bp].tank?{tank:cur[bp.dataset.bp].tank}:{}),kg:parseFloat(bp.value)||0,...(n>0?{jumbo:n}:{}),...(m>0?{rem:m}:{})}}).filter(x=>x.kg>0);
+  return [...document.querySelectorAll('.bpr')].map(r=>{const bp=r.querySelector('[data-bp]'),n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0;return{name:bp.dataset.bp,...(bp.dataset.bc?{code:bp.dataset.bc}:{}),...(cur[bp.dataset.bp]&&cur[bp.dataset.bp].tank?{tank:cur[bp.dataset.bp].tank}:{}),kg:Math.round(parseFloat(bp.value)||0),...(n>0?{jumbo:n}:{}),...(m>0?{rem:m}:{})}}).filter(x=>x.kg>0);
 }
 function offForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||st(o)!=='running')return;
@@ -1464,7 +1466,7 @@ function summaryForm(id){
     <div><label for="s-ncr" class="hint">ข้าวติด NCR (กก.)</label><input id="s-ncr" type="number" min="0" step="any" inputmode="decimal" value="${r.ncr??''}"></div></div>
   <div class="field"><label for="s-note">หมายเหตุ</label><textarea id="s-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot f4"><button class="btn" data-act="close">ยกเลิก</button><button class="btn" id="s-save">บันทึกร่าง</button><button class="btn" id="s-final">สรุป (ไม่ส่ง LINE)</button><button class="btn primary" id="s-save-line">สรุปรายงาน + ส่ง LINE</button></div>`,()=>{
-    const rd=()=>[...document.querySelectorAll('#s-bp .sr')].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:parseFloat(r.querySelector('[data-sk]').value)||0,tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
+    const rd=()=>[...document.querySelectorAll('#s-bp .sr')].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:Math.round(parseFloat(r.querySelector('[data-sk]').value)||0),tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
     const sum=()=>{wSum();if(!$('#s-sum'))return;const w=readWeights().reduce((a,x)=>a+x.kg,0),by=rd(),k=by.reduce((a,x)=>a+x.kg,0);$('#s-sum').style.whiteSpace='pre-line';$('#s-sum').textContent=by.length?by.map(x=>`${x.name}${x.code?' ('+x.code+')':''}  ${fmt(x.kg)} กก.${w?' = '+pctOf(x.kg,w):''}`).join('\n')+`\nผลพลอยได้รวม ${fmt(k)} กก.${w?' · ข้าวที่ผลิตได้ '+fmt(w-k)+' กก. = '+pctOf(w-k,w):''}`:''};
     $('#sheet').addEventListener('input',sum);
     $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim())||catByName(n.value);if(d&&!c.value)c.value=d.code;sum()});
@@ -1473,7 +1475,7 @@ function summaryForm(id){
       const W=readWeights(),tw=W.reduce((a,x)=>a+x.kg,0),by=rd(),tb=by.reduce((a,x)=>a+x.kg,0),sh=segShares(o),nets=segNets(o),T=nets.reduce((a,b)=>a+b,0);
       if(!(tw>0)){el.textContent='ใส่น้ำหนัก input รวม ระบบจะแบ่งให้แต่ละช่วงตามเวลาผลิตจริง';return}
       const rate=T>0?tw/1000/(T/60):0;
-      el.textContent=`กำลังผลิตรวม ${fmt(rate)} ตัน/ชม. (input ${fmt(tw)} กก. ÷ เวลาผลิตจริง ${hm(T)})\n`+segsOf(o).map((g,i)=>{const w=splitKg(tw,sh,i),b=splitKg(tb,sh,i);return `ช่วงที่ ${i+1}${o.docNo?' ('+o.docNo+(i?'/'+i:'')+')':''}: ผลิตจริง ${hm(nets[i])} × ${fmt(rate)} = น้ำหนักรวม ${fmt(w)} กก. · ผลพลอยได้ ${fmt(b)} กก.`}).join('\n')+'\nแล้วแบ่ง input/ผลพลอยได้ตามเปอร์เซ็นต์ของแต่ละตัว (คำนวณให้อัตโนมัติ)';
+      el.textContent=`กำลังผลิตรวม ${fmt(rate)} ตัน/ชม. (input ${fmt(tw)} กก. ÷ เวลาผลิตจริง ${hm(T)})\n`+segsOf(o).map((g,i)=>{const w=W.reduce((a,x)=>a+splitKg(x.kg,sh,i),0),b=by.reduce((a,x)=>a+splitKg(x.kg,sh,i),0);return `ช่วงที่ ${i+1}${o.docNo?' ('+o.docNo+(i?'/'+i:'')+')':''}: ผลิตจริง ${hm(nets[i])} × ${fmt(rate)} = น้ำหนักรวม ${fmt(w)} กก. · ผลพลอยได้ ${fmt(b)} กก.`}).join('\n')+'\nแล้วแบ่ง input/ผลพลอยได้ตามเปอร์เซ็นต์ของแต่ละตัว (คำนวณให้อัตโนมัติ)';
     };
     const sum0=sum;
     $('#sheet').addEventListener('input',alloc);$('#sheet').addEventListener('change',alloc);
@@ -1488,7 +1490,7 @@ function summaryForm(id){
       const patch={inputs:w,byproducts:bp,
         inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
         outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
-        rep:{machineNo:$('#s-mc').value.trim(),quality:$('#s-q').value.trim(),elecFrom:$('#s-e1').value===''?'':parseFloat($('#s-e1').value),elecTo:$('#s-e2').value===''?'':parseFloat($('#s-e2').value),ncr:parseFloat($('#s-ncr').value)||0},
+        rep:{machineNo:$('#s-mc').value.trim(),quality:$('#s-q').value.trim(),elecFrom:$('#s-e1').value===''?'':parseFloat($('#s-e1').value),elecTo:$('#s-e2').value===''?'':parseFloat($('#s-e2').value),ncr:Math.round(parseFloat($('#s-ncr').value)||0)},
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
         ...(mode!=='draft'?{summarized:true,sumAt:nowLocal(),sumBy:byName()}:{})};
       if(await upd(o,patch,['outputKg','segs'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}

@@ -252,10 +252,11 @@ function segShares_(o) {
 function r2_(v) { return Math.round(v * 100) / 100; }
 
 function splitKg_(kg, sh, i) {
+  // จำนวนเต็ม แบ่งแบบสะสม: ผลรวมทุกช่วงเท่ายอดรวมพอดี
   let c0 = 0;
   for (let k = 0; k < i; k++) c0 += sh[k];
   const c1 = i === sh.length - 1 ? 1 : c0 + sh[i], v = +kg || 0;
-  return r2_(r2_(v * c1) - r2_(v * c0));
+  return Math.round(v * c1) - Math.round(v * c0);
 }
 
 function segData_(o, i) {
@@ -306,52 +307,40 @@ function identRows_(o) {
   ];
 }
 
-// สรุปผลการผลิต: เวลา, input, ผลพลอยได้, ข้าวที่ผลิตได้, กำลังผลิต
+// สรุปผลการผลิตแบบย่อ: เน้นยอดน้ำหนัก (กก. จำนวนเต็ม) และเปอร์เซ็นต์
 function summaryRows_(o) {
   const rows = [];
   const done = o.status === 'done';
-  const inKg = sumKg_(o.inputs);
-  const byKg = sumKg_(o.byproducts);
-  let net = 0, total = 0;
+  const inKg = Math.round(sumKg_(o.inputs));
+  const byKg = Math.round(sumKg_(o.byproducts));
+  const outKg = inKg - byKg;
+  let net = 0;
   const multi = offsOf_(o).length > 0;
   if (done && o.startAt && o.endAt) {
-    total = onShiftMin_(o);
-    const loss = lossMin_(o);
-    net = Math.max(0, total - loss);
-    rows.push('เริ่ม: ' + fmtDT_(o.startAt), 'เสร็จ: ' + fmtDT_(o.endAt),
-      multi ? 'เวลาทำงานรวมทุกช่วง: ' + hm_(total) + ' (ไม่รวมช่วงหยุดออกงาน)' : 'เวลาทั้งหมด: ' + hm_(total),
-      'เวลาสูญเสียจากการหยุด: ' + hm_(loss) + ' (' + num_(loss / 60) + ' ชม.)',
-      'เวลาผลิตจริง: ' + hm_(net));
+    net = Math.max(0, onShiftMin_(o) - lossMin_(o));
+    rows.push('เวลาผลิตจริง: ' + hm_(net) + (inKg > 0 && net > 0 ? ' · ' + num_(inKg / 1000 / (net / 60)) + ' ตัน/ชม.' : ''));
   }
   if (inKg > 0) {
-    rows.push('— น้ำหนัก input —');
+    rows.push('Input รวม: ' + num_(inKg, 0) + ' กก. (100%)');
     (o.inputs || []).forEach(function (x) {
-      if (+x.kg > 0) rows.push('• ' + (x.code ? '(' + x.code + ') ' : '') + (x.name || 'ไม่ระบุชื่อ') + (x.tank ? ' [' + x.tank + ']' : '') + (x.src ? ' จาก ' + x.src : '') + ' ' + num_(x.kg) + ' กก. (' + pct_(x.kg, inKg) + ')');
+      if (+x.kg > 0) rows.push('  • ' + (x.name || 'ไม่ระบุชื่อ') + ' ' + num_(x.kg, 0) + ' กก. (' + pct_(x.kg, inKg) + ')');
     });
-    rows.push('รวม input: ' + num_(inKg) + ' กก. (' + num_(inKg / 1000, 3) + ' ตัน) = 100%');
-  }
-  if (done && (o.byproducts || []).length) {
-    rows.push('— ผลพลอยได้ —');
-    o.byproducts.forEach(function (b) {
-      rows.push('• ' + b.name + (b.code ? ' (' + b.code + ')' : '') + (b.tank ? ' [' + b.tank + ']' : '') + ' ' + num_(b.kg) + ' กก.' + (inKg > 0 ? ' (' + pct_(b.kg, inKg) + ')' : '') +
-        (b.jumbo ? ' (' + b.jumbo + ' จัมโบ้' + (b.rem ? ' + เศษ ' + num_(b.rem) : '') + ')' : ''));
-    });
-    rows.push('รวมผลพลอยได้: ' + num_(byKg) + ' กก.' + (inKg > 0 ? ' (' + pct_(byKg, inKg) + ' ของ input)' : ''));
   }
   if (done && inKg > 0) {
-    rows.push('ข้าวที่ผลิตได้ : ' + num_(inKg - byKg) + ' กก. (' + num_((inKg - byKg) / 1000, 3) + ' ตัน) = ' + pct_(inKg - byKg, inKg) + ' ของ input');
-    if (net > 0) rows.push('กำลังผลิต: ' + num_(inKg / 1000 / (net / 60)) + ' ตัน/ชม.');
+    const bp = Math.round(byKg / inKg * 1000) / 10;
+    rows.push('ผลพลอยได้รวม: ' + num_(byKg, 0) + ' กก. (' + num_(bp, 1) + '%)');
+    (o.byproducts || []).forEach(function (b) {
+      if (+b.kg > 0) rows.push('  • ' + b.name + ' ' + num_(b.kg, 0) + ' กก. (' + pct_(b.kg, inKg) + ')');
+    });
+    rows.push('ข้าวที่ผลิตได้: ' + num_(outKg, 0) + ' กก. (' + num_(Math.round((100 - bp) * 10) / 10, 1) + '%)');
     if (multi) {
-      rows.push('— แยกตามช่วงการผลิต —');
+      rows.push('แยกตามช่วง:');
       segs_(o).forEach(function (g, i) {
-        const d = segData_(o, i), gi = sumKg_(d.inputs), gb = sumKg_(d.byproducts), gm = g.to ? minsBetween_(g.from, g.to) : 0;
-        rows.push('ช่วงที่ ' + (i + 1) + (o.docNo ? ' (เลขที่ ' + o.docNo + (i ? '/' + i : '') + ')' : '') + ': ' + fmtDT_(g.from) + ' – ' + fmtDT_(g.to));
-        rows.push('  ผลิตจริง ' + hm_(gm) + ' · input ' + num_(gi) + ' กก. · ผลพลอยได้ ' + num_(gb) + ' กก.' +
-          (gi > 0 && gm > 0 ? ' · ' + num_(gi / 1000 / (gm / 60)) + ' ตัน/ชม.' : ''));
+        const d = segData_(o, i), gi = Math.round(sumKg_(d.inputs)), gb = Math.round(sumKg_(d.byproducts));
+        rows.push('  ' + (o.docNo ? o.docNo + (i ? '/' + i : '') : 'ช่วงที่ ' + (i + 1)) + ': input ' + num_(gi, 0) + ' · พลอยได้ ' + num_(gb, 0) + ' · ข้าว ' + num_(gi - gb, 0) + ' กก.');
       });
     }
   }
-  if (done) rows.push('ถังเก็บข้าวที่ผลิตได้: ' + list_(o.outTanks));
   return rows;
 }
 
