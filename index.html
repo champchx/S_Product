@@ -334,7 +334,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .line.lr{grid-template-columns:minmax(0,1fr) 36px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
 .line.lr>*{min-width:0}
 .line.lr>.lt{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.line.lr>.ld{grid-column:1/-1}
+.line.lr>.ld,.line.lr>.ls{grid-column:1/-1}
 .sumrow{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line,#ddd);border-radius:12px;background:var(--surface)}.sumrow .sinfo{min-width:0;flex:1 1 220px}.sumrow .sbtn{display:flex;gap:6px;flex-wrap:wrap}#sumlist{display:flex;flex-direction:column;gap:8px}
 .bpt{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px;color:var(--muted)}
 @media (max-width:480px){.line.wr,.line.fr,.line.sr{grid-template-columns:1fr 1fr 36px}.line.wr>input:first-child,.line.fr>input:first-child,.line.sr>input:first-child{grid-column:1/-1}.line.br{grid-template-columns:1fr 36px}.line.br>input:first-child{grid-column:1/-1}}
@@ -595,6 +595,7 @@ function segView(o,i){
   const g=segsOf(o)[i];if(!g)return o;const d=segData(o,i);
   return{...o,startAt:g.from,endAt:g.to,status:'done',offs:[],segs:undefined,
     pauses:(o.pauses||[]).filter(p=>+new Date(p.from)>=+new Date(g.from)&&+new Date(p.from)<=+new Date(g.to)),
+    lossNotes:(o.lossNotes||[]).filter(n=>(n.seg||0)===i),
     inputs:d.inputs||[],byproducts:d.byproducts||[],rep:d.rep||{},
     docNo:i&&o.docNo?o.docNo+'/'+i:(o.docNo||''),_seg:i};
 }
@@ -1742,15 +1743,20 @@ async function resendLine(id,final){
   catch(e){fail('ส่ง LINE ไม่สำเร็จ',e);return false}
 }
 function sRow(b,o){b=b||{};return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${b.tank===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
+let lossO=null;
 function lossRow(p){p=p||{};const c=p.cat||(p.from?pauseCat(p):'');
+  let segSel='';
+  if(lossO&&hasOff(lossO)){const sg=segsOf(lossO);let cur=p.seg;
+    if(cur==null&&p.from){const k=sg.findIndex(g=>p.from>=g.from.slice(0,16)&&p.from<=(g.to||'9').slice(0,16));cur=k<0?0:k}
+    segSel=`<select class="ls" data-ls aria-label="ช่วงที่">${sg.map((g,i)=>`<option value="${i}" ${(cur||0)===i?'selected':''}>ช่วงที่ ${i+1} · ${esc(dts(g.from))} – ${esc(dts(g.to))}</option>`).join('')}</select>`}
   return `<div class="line lr"><select data-lc aria-label="ประเภทการสูญเสียเวลา"><option value="">เลือกประเภทเวลาสูญเสีย</option>${LOSS_CATS.map(k=>`<option ${c===k?'selected':''}>${k}</option>`).join('')}</select><button class="x" type="button" data-act="rm-line" aria-label="ลบรายการ">×</button>
   <div class="lt"><div><label class="hint">เวลาเริ่ม</label><input type="datetime-local" data-lf value="${esc((p.from||'').slice(0,16))}"></div><div><label class="hint">เวลาสิ้นสุด</label><input type="datetime-local" data-lt value="${esc((p.to||'').slice(0,16))}"></div></div>
-  <input class="ld" data-ld maxlength="120" placeholder="รายละเอียด เช่น ล้างระบบหลังเปลี่ยนชนิดข้าว" aria-label="รายละเอียด" value="${esc(p.reason||'')}"></div>`}
-function readLoss(){return [...document.querySelectorAll('#s-loss .lr')].map(r=>({cat:r.querySelector('[data-lc]').value,from:r.querySelector('[data-lf]').value,to:r.querySelector('[data-lt]').value,reason:r.querySelector('[data-ld]').value.trim()})).filter(x=>x.cat||x.from||x.to||x.reason)}
+  ${segSel}<input class="ld" data-ld maxlength="120" placeholder="รายละเอียด เช่น ล้างระบบหลังเปลี่ยนชนิดข้าว" aria-label="รายละเอียด" value="${esc(p.reason||'')}"></div>`}
+function readLoss(){return [...document.querySelectorAll('#s-loss .lr')].map(r=>({cat:r.querySelector('[data-lc]').value,from:r.querySelector('[data-lf]').value,to:r.querySelector('[data-lt]').value,reason:r.querySelector('[data-ld]').value.trim(),seg:r.querySelector('[data-ls]')?+r.querySelector('[data-ls]').value:0})).filter(x=>x.cat||x.from||x.to||x.reason)}
 function summaryForm(id){
   const o=S.orders.find(x=>x.id===id);if(!o||!isAdmin())return;
   const defs=bpDefs(o),cur=(o.byproducts||[]).filter(b=>+b.kg>0);
-  const by0=(o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName();
+  const by0=(o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName();lossO=o;
   openModal(`<div><h2>${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)} · เสร็จ ${esc(dt(o.endAt))}</div></div>
   <div class="field"><label for="s-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger)">*</b></label><input id="s-by" maxlength="60" value="${esc(by0)}" placeholder="ชื่อ-นามสกุลผู้รายงาน"></div>
   ${weightFields(o)}
@@ -1760,7 +1766,7 @@ function summaryForm(id){
     <div class="lines" id="s-bp">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
   ${hasOff(o)?'<div class="notice" id="s-alloc" style="white-space:pre-line"></div>':''}
-  <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + รายละเอียด จะแสดงในใบรายงาน · ใส่เวลาหรือไม่ก็ได้)</span>
+  <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + รายละเอียด จะแสดงในใบรายงาน · ใส่เวลาหรือไม่ก็ได้${hasOff(o)?' · เลือกช่วงที่ของแต่ละรายการ':''})</span>
     <div class="lines" id="s-loss">${[...(o.pauses||[]),...(o.lossNotes||[])].map(p=>lossRow(p)).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-loss">+ เพิ่มเวลาสูญเสีย</button></div><div class="hint" id="s-lossum"></div></div>
   <div class="field"><label for="s-note">หมายเหตุ</label><textarea id="s-note">${esc(o.resultNote||'')}</textarea></div>
@@ -1793,10 +1799,13 @@ function summaryForm(id){
         if(!x.cat)return toast('เลือกประเภทเวลาสูญเสียให้ครบทุกแถว');
         if(!x.from!==!x.to)return toast('ใส่เวลาเริ่มและสิ้นสุดให้ครบทั้งคู่ หรือเว้นว่างทั้งคู่');
         if(x.from&&x.to<=x.from)return toast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');
-        if(x.from&&(o.startAt&&x.from<o.startAt.slice(0,16)||o.endAt&&x.to>o.endAt.slice(0,16)))return toast('เวลาสูญเสียต้องอยู่ในช่วงเวลาผลิต');
+        if(x.from){
+          const g=hasOff(o)?segsOf(o)[x.seg]:{from:o.startAt,to:o.endAt};
+          if(g&&(g.from&&x.from<g.from.slice(0,16)||g.to&&x.to>g.to.slice(0,16)))return toast(hasOff(o)?`เวลาสูญเสียต้องอยู่ในช่วงที่ ${x.seg+1} (${dts(g.from)} – ${dts(g.to)})`:'เวลาสูญเสียต้องอยู่ในช่วงเวลาผลิต');
+        }
         if(x.cat==='อื่นๆ'&&!x.reason)return toast('ประเภทอื่นๆ ใส่รายละเอียดด้วย');
       }
-      const patch={inputs:w,byproducts:bp,pauses:lr.filter(x=>x.from).map(x=>({from:x.from,to:x.to,cat:x.cat,...(x.reason?{reason:x.reason}:{})})),lossNotes:lr.filter(x=>!x.from).map(x=>({cat:x.cat,...(x.reason?{reason:x.reason}:{})})),
+      const patch={inputs:w,byproducts:bp,pauses:lr.filter(x=>x.from).map(x=>({from:x.from,to:x.to,cat:x.cat,...(x.reason?{reason:x.reason}:{})})),lossNotes:lr.filter(x=>!x.from).map(x=>({cat:x.cat,...(hasOff(o)?{seg:x.seg}:{}),...(x.reason?{reason:x.reason}:{})})),
         inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
         outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
