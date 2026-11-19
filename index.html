@@ -1452,7 +1452,9 @@ function reportDocHtml(o){
   const ps=o.pauses||[];
   LOSS_CATS.forEach((c,i)=>{const arr=ps.filter(p=>pauseCat(p)===c),r0=49+i;
     const mm=arr.reduce((a,p)=>a+mins(p.from,p.to||o.endAt||nowLocal()),0);
-    if(arr.length){V['M'+r0]=fmSh(arr.map(p=>p.from).sort()[0]);V['N'+r0]=fmSh(arr.map(p=>p.to||o.endAt||'').sort().pop());V['P'+r0]=e(arr.map(p=>p.reason).filter(Boolean).join(' / '))}
+    const nt=(o.lossNotes||[]).filter(p=>p.cat===c);
+    if(arr.length){V['M'+r0]=fmSh(arr.map(p=>p.from).sort()[0]);V['N'+r0]=fmSh(arr.map(p=>p.to||o.endAt||'').sort().pop())}
+    if(arr.length||nt.length){V['P'+r0]=e([...arr,...nt].map(p=>p.reason).filter(Boolean).join(' / ')||'(ไม่ระบุรายละเอียด)')}
     V['O'+r0]=mm});
   V.O56=m.loss;V.O57=dep?m.net:'';V.O58=dep?(m.net/60).toFixed(2):'';V.O59=r.ncr?fmt(r.ncr):'';
   V.M60=e(o.reportBy||'');V.K62=m.done?fmD(o.endAt):'';
@@ -1758,8 +1760,8 @@ function summaryForm(id){
     <div class="lines" id="s-bp">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
   ${hasOff(o)?'<div class="notice" id="s-alloc" style="white-space:pre-line"></div>':''}
-  <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + ใส่เวลา + รายละเอียด จะแสดงในใบรายงาน)</span>
-    <div class="lines" id="s-loss">${(o.pauses||[]).map(p=>lossRow(p)).join('')}</div>
+  <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + รายละเอียด จะแสดงในใบรายงาน · ใส่เวลาหรือไม่ก็ได้)</span>
+    <div class="lines" id="s-loss">${[...(o.pauses||[]),...(o.lossNotes||[])].map(p=>lossRow(p)).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-loss">+ เพิ่มเวลาสูญเสีย</button></div><div class="hint" id="s-lossum"></div></div>
   <div class="field"><label for="s-note">หมายเหตุ</label><textarea id="s-note">${esc(o.resultNote||'')}</textarea></div>
   <div class="foot f4"><button class="btn" data-act="close">ยกเลิก</button><button class="btn" id="s-save">บันทึกร่าง</button><button class="btn" id="s-final">สรุป (ไม่ส่ง LINE)</button><button class="btn primary" id="s-save-line">สรุปรายงาน + ส่ง LINE</button></div>`,()=>{
@@ -1775,7 +1777,7 @@ function summaryForm(id){
       el.textContent=`กำลังผลิตรวม ${fmt(rate)} ตัน/ชม. (input ${fmt(tw)} กก. ÷ เวลาผลิตจริง ${hm(T)})\n`+segsOf(o).map((g,i)=>{const w=W.reduce((a,x)=>a+splitKg(x.kg,sh,i),0),b=by.reduce((a,x)=>a+splitKg(x.kg,sh,i),0);return `ช่วงที่ ${i+1}${o.docNo?' ('+o.docNo+(i?'/'+i:'')+')':''}: ผลิตจริง ${hm(nets[i])} × ${fmt(rate)} = น้ำหนักรวม ${fmt(w)} กก. · ผลพลอยได้ ${fmt(b)} กก.`}).join('\n')+'\nแล้วแบ่ง input/ผลพลอยได้ตามเปอร์เซ็นต์ของแต่ละตัว (คำนวณให้อัตโนมัติ)';
     };
     const sum0=sum;
-    window.lossSum=()=>{const el=$('#s-lossum');if(!el)return;const L=readLoss().filter(x=>x.from&&x.to&&x.to>x.from),t=L.reduce((a,x)=>a+mins(x.from,x.to),0);el.textContent=L.length?`รวมเวลาสูญเสีย ${hm(t)} (หักออกจากเวลาผลิตจริง)`:'ไม่มีเวลาสูญเสีย'};
+    window.lossSum=()=>{const el=$('#s-lossum');if(!el)return;const A=readLoss(),L=A.filter(x=>x.from&&x.to&&x.to>x.from),t=L.reduce((a,x)=>a+mins(x.from,x.to),0),n=A.length-L.length;el.textContent=A.length?`รวมเวลาสูญเสีย ${hm(t)} (หักออกจากเวลาผลิตจริง)`+(n?` · อีก ${n} รายการไม่ระบุเวลา (แสดงในใบรายงานอย่างเดียว ไม่หักเวลา)`:''):'ไม่มีเวลาสูญเสีย'};
     $('#sheet').addEventListener('input',lossSum);$('#sheet').addEventListener('change',lossSum);lossSum();
     $('#sheet').addEventListener('input',alloc);$('#sheet').addEventListener('change',alloc);
     sum();alloc();
@@ -1789,12 +1791,12 @@ function summaryForm(id){
       const lr=readLoss();
       for(const x of lr){
         if(!x.cat)return toast('เลือกประเภทเวลาสูญเสียให้ครบทุกแถว');
-        if(!x.from||!x.to)return toast('ใส่เวลาเริ่มและสิ้นสุดของเวลาสูญเสียให้ครบ');
-        if(x.to<=x.from)return toast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');
-        if(o.startAt&&x.from<o.startAt.slice(0,16)||o.endAt&&x.to>o.endAt.slice(0,16))return toast('เวลาสูญเสียต้องอยู่ในช่วงเวลาผลิต');
+        if(!x.from!==!x.to)return toast('ใส่เวลาเริ่มและสิ้นสุดให้ครบทั้งคู่ หรือเว้นว่างทั้งคู่');
+        if(x.from&&x.to<=x.from)return toast('เวลาสิ้นสุดต้องหลังเวลาเริ่ม');
+        if(x.from&&(o.startAt&&x.from<o.startAt.slice(0,16)||o.endAt&&x.to>o.endAt.slice(0,16)))return toast('เวลาสูญเสียต้องอยู่ในช่วงเวลาผลิต');
         if(x.cat==='อื่นๆ'&&!x.reason)return toast('ประเภทอื่นๆ ใส่รายละเอียดด้วย');
       }
-      const patch={inputs:w,byproducts:bp,pauses:lr.map(x=>({from:x.from,to:x.to,cat:x.cat,...(x.reason?{reason:x.reason}:{})})),
+      const patch={inputs:w,byproducts:bp,pauses:lr.filter(x=>x.from).map(x=>({from:x.from,to:x.to,cat:x.cat,...(x.reason?{reason:x.reason}:{})})),lossNotes:lr.filter(x=>!x.from).map(x=>({cat:x.cat,...(x.reason?{reason:x.reason}:{})})),
         inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
         outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
