@@ -132,6 +132,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .xlw .cb svg{position:absolute;left:-1px;top:-5px;width:18px;height:18px;overflow:visible}
 .xlw .dtf{font-size:19.5px!important}
 .xlw.ordx .xl td{font-size:18.7px}
+/* ตาราง input / output / วันเวลาสูญเสีย: ตัวอักษร 16 ทั้งหมด (หัวตาราง ข้อมูล ผลรวม หมายเหตุ) */
+.xlw.rp .xl tr:nth-child(n+16):nth-child(-n+59)>td{font-size:16px}
 .xlw .xl td,.xlw .xl td *{font-weight:700!important}
 .xlw .cb.on::after{content:"";position:absolute;left:3.5px;top:-3px;width:5px;height:11px;border:solid #000;border-width:0 2.4px 2.4px 0;transform:rotate(40deg)}
 /* ---- forms v3 (old, unused) ---- */
@@ -376,6 +378,8 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
 .who .btn{display:inline-flex;align-items:center;gap:6px}
 .who .btn .ic{display:none}.who [data-act=ui-mode] .ic{display:inline-block;width:17px;height:17px}.who .more{display:none}
 .wkact{display:contents}
+.inst{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;line-height:1.55}
+.mi small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:1px}
 .menu{display:flex;flex-direction:column;gap:8px}.mi{display:flex;align-items:center;gap:12px;min-height:54px;padding:12px 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:16px;text-align:left;cursor:pointer;width:100%}.mi .ic{display:block;width:22px;height:22px;color:var(--accent)}.mi.danger,.mi.danger .ic{color:var(--danger)}.mi:active{background:var(--surface2)}
 .lv{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .lv.big{font-family:var(--font-head);font-size:20px;color:var(--accent)}
@@ -445,6 +449,7 @@ html.pm .toolbar .grow{flex:1 1 100%}
 html.pm .weekbar{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:8px;align-items:center}
 html.pm .weekbar>b{min-width:0;text-align:center;font-size:16px}
 html.pm .weekbar>.grow{display:none}
+html.pm #planupd{order:-1}
 html.pm .wkact{grid-column:1/-1;display:flex;gap:8px;overflow-x:auto;margin:0 -12px;padding:2px 12px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 html.pm .wkact::-webkit-scrollbar{display:none}
 html.pm .wkact .btn{flex:none}
@@ -565,6 +570,7 @@ html.pmf #installbar{left:50%;right:auto;transform:translateX(-50%);width:calc(m
       <button class="btn sm" data-act="xl-week" id="pwk-x1">Excel แผนสัปดาห์</button>
       <button class="btn sm" data-act="xl-week-forms" id="pwk-x2">Excel ใบสั่งงานทั้งสัปดาห์</button>
       <button class="btn sm" data-act="reord-start" id="reordbtn">จัดลำดับแผน</button>
+      <button class="btn sm primary" data-act="plan-update" id="planupd" hidden>อัปเดตแผนปัจจุบัน</button>
       </div>
     </div>
     <div id="plist" class="list"></div>
@@ -715,12 +721,12 @@ function tickLive(){
   const cache={};ns.forEach(n=>{const id=n.dataset.live;let l=cache[id];if(l===undefined){const o=S.orders.find(x=>x.id===id);l=cache[id]=o&&o.startAt&&o.status!=='done'?liveSec(o):null}if(l)n.textContent=hms(l[n.dataset.k]||0)});
 }
 const isPhone=()=>document.documentElement.classList.contains('pm');
-const ICO={key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',out:'<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/>',dots:'<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>'};
+const ICO={key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',out:'<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/>',download:'<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"/>',dots:'<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>'};
 const icon=k=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`;
 function moreForm(){
   const ph=isPhone();
   openModal(`<div class="row"><div><div class="name">เมนู</div><div class="hint">${isAdmin()?'ธุรการ':(S.nick?esc(S.nick):'พนักงาน')}</div></div><button class="btn sm" data-act="close">ปิด</button></div>
-    <div class="menu">${isAdmin()?`<button class="mi" data-act="pw">${icon('key')}<span>เปลี่ยนรหัสผ่าน</span></button>`:(S.uid?`<button class="mi" data-act="my-account">${icon('user')}<span>บัญชีของฉัน</span></button>`:'')}
+    <div class="menu">${isStandalone()?'':`<button class="mi" data-act="install-app">${icon('download')}<span>ติดตั้งเป็นแอป<small>เปิดจากหน้าจอหลักได้เหมือนแอปทั่วไป</small></span></button>`}${isAdmin()?`<button class="mi" data-act="pw">${icon('key')}<span>เปลี่ยนรหัสผ่าน</span></button>`:(S.uid?`<button class="mi" data-act="my-account">${icon('user')}<span>บัญชีของฉัน</span></button>`:'')}
       <button class="mi" data-act="ui-mode">${icon(ph?'monitor':'phone')}<span>${ph?'สลับเป็นโหมดคอมพิวเตอร์':'สลับเป็นโหมดโทรศัพท์'}</span></button>
       <button class="mi danger" data-act="logout">${icon('out')}<span>ออกจากระบบ</span></button></div>`);
 }
@@ -1539,8 +1545,10 @@ function shrinkCells(tds){
   tds.forEach(td=>{
     if(!td.textContent.trim()||td.querySelector('img'))return;
     const cs=getComputedStyle(td),ctr=cs.textAlign==='center';
-    let avail=td.offsetWidth,nx=td.nextElementSibling;
-    if(!ctr)while(nx&&!nx.textContent.trim()&&!nx.querySelector('img')){avail+=nx.offsetWidth;nx=nx.nextElementSibling}
+    let avail=td.offsetWidth,nx=td.nextElementSibling,cur=td;
+    /* ข้อความล้นไปช่องว่างข้างๆ ได้ แต่ต้องไม่ข้ามเส้นตั้ง */
+    const vb=(e,side)=>{const c=getComputedStyle(e);return parseFloat(c['border'+side+'Width'])>0&&c['border'+side+'Style']!=='none'};
+    if(!ctr)while(nx&&!nx.textContent.trim()&&!nx.querySelector('img')){if(vb(cur,'Right')||vb(nx,'Left'))break;avail+=nx.offsetWidth;cur=nx;nx=nx.nextElementSibling}
     const need=td.scrollWidth;
     if(need>avail+1)td.style.fontSize=(parseFloat(cs.fontSize)*Math.max(.55,avail/need*.97)).toFixed(1)+'px';
   });
@@ -1591,7 +1599,7 @@ function xlRender(T,V,cls){
   return `<div class="xlbox"><div class="xlw ${cls||''}" data-w="${T.w}" data-h="${T.h}"><style>${T.css}</style>${body}</div></div>`;
 }
 const fmG=(v,noU)=>{if(!v)return '';const d=new Date(v);return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()+543} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}${noU?'':' น.'}`};
-const fmSh=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/.exec(v||'');return m?`<span style="font-size:15px">${+m[3]}/${+m[2]}/${String(+m[1]+543).slice(2)} ${m[4]}</span>`:''};
+const fmSh=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/.exec(v||'');return m?`${+m[3]}/${+m[2]} ${m[4]}`:''};
 const fmHM=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/.exec(v||'');return m?`${+m[3]}/${+m[2]}/${(+m[1]+543)%100} ${m[4]}`:''};
 const ul=v=>`<span class="ul">${v==null?'':v}</span>`;
 function reportDocHtml(o){
@@ -2217,6 +2225,30 @@ function reordSave(){
     };
   });
 }
+/* ---------- อัปเดตแผนปัจจุบัน (ธุรการ): ส่งสถานะผลิต + ลำดับคิวล่าสุดเข้า LINE ครั้งเดียว ---------- */
+const STL={running:'กำลังผลิต',paused:'หยุดชั่วคราว',off:'หยุดออกงาน'};
+async function planUpdateForm(){
+  if(!SHEET){toast('ใช้ได้เฉพาะเวอร์ชันที่เชื่อม Google Sheets');return}
+  try{await pull()}catch(e){}
+  const run=S.orders.filter(o=>o.status!=='done').sort((a,b)=>(a.startAt||'').localeCompare(b.startAt||'')),q=planQueue();
+  const li=(t,sub)=>`<div class="kv"><span>${t}</span><b style="white-space:nowrap;margin-left:10px">${sub}</b></div>`;
+  openModal(`<div class="row"><h2 style="margin:0">อัปเดตแผนปัจจุบัน</h2><button class="btn sm" data-act="close">ปิด</button></div>
+  <div class="hint">ส่งแผนการผลิต ณ ตอนนี้เข้า LINE <b>1 ครั้ง</b> (กำลังผลิต + ลำดับคิวที่รอเริ่มผลิต) และแจ้งในแอปให้ทุกคน ไม่แก้ไขข้อมูลแผนใดๆ</div>
+  <h3 style="margin:4px 0 0">กำลังผลิต <span class="hint">(${run.length})</span></h3>
+  <div class="list">${run.length?run.map(o=>li(`<b>${esc(o.no)}</b> ${esc(o.typeName)} · ${fmt(o.qty)} กก.`,STL[st(o)]||'')).join(''):'<div class="hint">ไม่มีงานที่กำลังผลิต</div>'}</div>
+  <h3 style="margin:4px 0 0">คิวรอผลิต <span class="hint">(${q.length} แผน)</span></h3>
+  <div class="list">${q.length?q.slice(0,15).map((p,i)=>li(`${i+1}. <b>${esc(p.no)}</b> ${esc(p.typeName)} · ${fmt(p.qty)} กก.`,p.plannedDate?dd(p.plannedDate):'')).join('')+(q.length>15?`<div class="hint">… และอีก ${q.length-15} แผน</div>`:''):'<div class="hint">ไม่มีแผนที่รอเริ่มผลิต</div>'}</div>
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="pu-ok">ส่งอัปเดตเข้า LINE</button></div>`,()=>{
+    $('#pu-ok').onclick=async()=>{
+      const b=$('#pu-ok');b.disabled=true;
+      try{
+        await api({action:'plan-update'});
+        emitEv({k:'plan',to:'all',text:`📋 อัปเดตแผนการผลิตปัจจุบัน · กำลังผลิต ${run.length} · รอผลิต ${q.length} แผน`});
+        closeModal();toast('ส่งอัปเดตแผนเข้า LINE แล้ว');
+      }catch(e){b.disabled=false;fail('ส่งอัปเดตแผนไม่สำเร็จ (ถ้าเพิ่งอัปเดตระบบ ให้ Deploy Code.gs เวอร์ชันล่าสุดก่อน)',e)}
+    };
+  });
+}
 /* ---------- แผนรายสัปดาห์ ---------- */
 const ymdD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const addDaysS=(s,n)=>{const d=new Date(s+'T00:00');d.setDate(d.getDate()+n);return ymdD(d)};
@@ -2271,7 +2303,7 @@ function renderPlans(){
   if(!isAdmin())S.reord=null;
   const orig0={};planQueue().forEach((p,i)=>orig0[p.id]=i+1);
   const queue=draftQueue(),qn=queue.length,qidx={};queue.forEach((p,i)=>qidx[p.id]=i+1);
-  $('#pwk-l').textContent=weekLabel(S.pwk);$('#reordbtn').hidden=!isAdmin()||!!S.reord;
+  $('#pwk-l').textContent=weekLabel(S.pwk);$('#reordbtn').hidden=!isAdmin()||!!S.reord;$('#planupd').hidden=!isAdmin()||!!S.reord;
   ['#pwk-p1','#pwk-p2','#pwk-x1','#pwk-x2'].forEach(k=>{$(k).disabled=!S.pwk;$(k).title=S.pwk?'':'เลือกสัปดาห์ก่อนพิมพ์'});
   $('#psummary').innerHTML=`<div><b>${qn}</b><span>รอเริ่มผลิต (${fmt(queue.reduce((a,p)=>a+(+p.qty||0),0))} กก.)</span></div><div><b>${S.plans.length-qn}</b><span>เริ่มผลิตแล้ว</span></div><div><b>${S.plans.length}</b><span>แผนทั้งหมด</span></div>`;
   const q=S.pq.trim().toLowerCase();
@@ -2417,7 +2449,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const id=b.dataset.id;
   const act=b.dataset.act;
-  if(['edit-order','del-order','sum-edit','sum-line','edit-type','del-type','reopen','del-pause','pw','weight','new-type','new-user','edit-user','del-user','seed','new-plan','edit-plan','del-plan','plan-up','plan-down','plan-top','reord-start','reord-save','reord-cancel'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
+  if(['edit-order','del-order','sum-edit','sum-line','edit-type','del-type','reopen','del-pause','pw','weight','new-type','new-user','edit-user','del-user','seed','new-plan','edit-plan','del-plan','plan-up','plan-down','plan-top','reord-start','reord-save','reord-cancel','plan-update'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
   if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
   switch(act){
     case 'jumbo':{const jb=b.closest('.bpr').querySelector('.jb');jb.hidden=!jb.hidden;if(!jb.hidden)jb.querySelector('input').focus();break}
@@ -2425,6 +2457,7 @@ document.addEventListener('click',e=>{
     case 'plan-open':planDetail(id);break;
     case 'plan-up':movePlan(id,-1);break;
     case 'plan-top':movePlan(id,'top');break;
+    case 'plan-update':planUpdateForm();break;
     case 'reord-start':S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='all';renderPlans();break;
     case 'reord-cancel':S.reord=null;renderPlans();break;
     case 'reord-save':reordSave();break;
@@ -2468,6 +2501,7 @@ document.addEventListener('click',e=>{
     case 'logout':closeModal();setRemember(null);setRole(null);break;
     case 'ui-mode':toggleUi();break;
     case 'more':moreForm();break;
+    case 'install-app':installApp();break;
     case 'pw':pwForm();break;
     case 'tab':setTab(b.dataset.tab);break;
     case 'new-order':orderForm();break;
@@ -2521,30 +2555,47 @@ applyUi();tickLive();
 init();
 
 /* ---------- ติดตั้งเป็นแอป ---------- */
+const INST={ev:null};
+const isStandalone=()=>{try{return matchMedia('(display-mode:standalone)').matches||navigator.standalone===true}catch(e){return false}};
 (function(){
   if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
     addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
   }
-  const standalone=matchMedia('(display-mode:standalone)').matches||navigator.standalone;
   let dismissed=false;try{dismissed=localStorage.getItem('install-dismissed')==='1'}catch(e){}
-  if(standalone||dismissed)return;
-  let ev=null;
   function bar(text,btn){
     if(document.getElementById('installbar'))return;
     const d=document.createElement('div');d.id='installbar';
     d.innerHTML='<span></span>'+(btn?'<button class="btn primary" type="button">'+btn+'</button>':'')+'<button class="btn" type="button" aria-label="ปิด">ปิด</button>';
     d.querySelector('span').textContent=text;
     const bs=d.querySelectorAll('button');
-    if(btn)bs[0].onclick=async()=>{if(ev){ev.prompt();try{await ev.userChoice}catch(e){}ev=null}d.remove()};
+    if(btn)bs[0].onclick=async()=>{const ev=INST.ev;INST.ev=null;if(ev){ev.prompt();try{await ev.userChoice}catch(e){}}d.remove()};
     bs[bs.length-1].onclick=()=>{d.remove();try{localStorage.setItem('install-dismissed','1')}catch(e){}};
     document.body.appendChild(d);
   }
-  addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e;bar('ติดตั้งเป็นแอปบนเครื่อง เปิดใช้ได้เหมือนแอปทั่วไป','ติดตั้ง')});
+  /* เก็บ event ติดตั้งไว้เสมอ (แม้ปิดแถบแจ้งแล้ว) เพื่อให้ปุ่มในเมนู ⋯ ใช้ติดตั้งได้ */
+  addEventListener('beforeinstallprompt',e=>{e.preventDefault();INST.ev=e;if(!dismissed&&!isStandalone())bar('ติดตั้งเป็นแอปบนเครื่อง เปิดใช้ได้เหมือนแอปทั่วไป','ติดตั้ง')});
+  addEventListener('appinstalled',()=>{INST.ev=null;const b=document.getElementById('installbar');if(b)b.remove();try{closeModal()}catch(e){}toast('ติดตั้งแอปเรียบร้อยแล้ว')});
   const ua=navigator.userAgent;
-  if(/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios/i.test(ua)){
+  if(!dismissed&&!isStandalone()&&/iphone|ipad|ipod/i.test(ua)&&!/crios|fxios/i.test(ua)){
     setTimeout(()=>bar('ติดตั้งแอป: แตะปุ่มแชร์ (สี่เหลี่ยมมีลูกศรขึ้น) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม"'),2500);
   }
 })();
+async function installApp(){
+  if(isStandalone()){toast('เครื่องนี้ติดตั้งแอปไว้แล้ว');return}
+  const ev=INST.ev;
+  if(ev){INST.ev=null;closeModal();try{ev.prompt();const c=await ev.userChoice;toast(c&&c.outcome==='accepted'?'กำลังติดตั้งแอป…':'ยกเลิกการติดตั้ง')}catch(e){}return}
+  const ua=navigator.userAgent,ios=/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),android=/android/i.test(ua);
+  const safari=/safari/i.test(ua)&&!/crios|fxios|edgios|chrome/i.test(ua);
+  const web=location.protocol.startsWith('http');
+  const steps=!web?['เปิดระบบผ่านลิงก์เว็บไซต์ (https) ของระบบก่อน ไม่ใช่เปิดจากไฟล์ในเครื่อง','จากนั้นกลับมากดปุ่มนี้อีกครั้ง']
+    :ios?[(safari?'':'ต้องเปิดลิงก์นี้ด้วย <b>Safari</b> ก่อน แล้วทำตามขั้นตอนถัดไป'),'แตะปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น) ที่แถบของ Safari','เลื่อนลงแล้วเลือก <b>เพิ่มไปยังหน้าจอโฮม</b>','กด <b>เพิ่ม</b> ที่มุมขวาบน จะมีไอคอนแอปบนหน้าจอโฮม'].filter(Boolean)
+    :android?['เปิดเมนู <b>⋮</b> มุมขวาบนของ Chrome','เลือก <b>ติดตั้งแอป</b> (หรือ <b>เพิ่มไปยังหน้าจอหลัก</b>)','กด <b>ติดตั้ง</b> เพื่อยืนยัน']
+    :['ใช้ Chrome หรือ Edge แล้วคลิกไอคอน <b>ติดตั้ง</b> (รูปจอมีลูกศร) ที่ปลายช่องที่อยู่เว็บ','หรือเปิดเมนู <b>⋮</b> → <b>ติดตั้ง BSCM…</b> / <b>แคสต์ บันทึก และแชร์ → ติดตั้งเป็นแอป</b>','กด <b>ติดตั้ง</b> เพื่อยืนยัน'];
+  openModal(`<div class="row"><h2 style="margin:0">ติดตั้งเป็นแอป</h2><button class="btn sm" data-act="close">ปิด</button></div>
+    <div class="hint">เบราว์เซอร์นี้ยังไม่แสดงหน้าต่างติดตั้งอัตโนมัติ ทำตามขั้นตอนนี้ได้เลย:</div>
+    <ol class="inst">${steps.map(x=>`<li>${x}</li>`).join('')}</ol>
+    <div class="hint">ติดตั้งแล้วเปิดจากไอคอนบนหน้าจอได้เลย ข้อมูลยังเป็นชุดเดียวกับที่ใช้ในเว็บ</div>`);
+}
 </script>
 </body>
 </html>
