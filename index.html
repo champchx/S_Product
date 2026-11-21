@@ -1878,6 +1878,18 @@ function exportReportXlsx(id){
   const docs=hasOff(o)?segsOf(o).map((g,i)=>segView(o,i)):[o];
   xlsxFromHtml(docs.map(d=>({name:xlName(d.docNo||d.no),html:reportDocHtml(d)})),'Report_'+xlFile(o.docNo||o.no));
 }
+/* Excel รวม: ใบสั่งผลิต + ใบรายงาน ในไฟล์เดียว (คนละชีต) */
+function exportBothXlsx(id){
+  if(!isAdmin()){toast('เฉพาะธุรการที่ดาวน์โหลดได้');return}
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  const p=S.plans.find(x=>x.id===o.planId||x.orderId===o.id);
+  const docs=hasOff(o)?segsOf(o).map((g,i)=>segView(o,i)):[o];
+  const items=[];
+  if(p)items.push({name:xlName('ใบสั่งผลิต '+(p.docNo||p.no)).slice(0,31),html:reqDocHtml(p)});
+  else toast('ไม่พบใบสั่งผลิตของรายการนี้ ดาวน์โหลดเฉพาะใบรายงาน');
+  docs.forEach((d,i)=>items.push({name:xlName('ใบรายงาน '+(d.docNo||d.no)).slice(0,31),html:reportDocHtml(d)}));
+  xlsxFromHtml(items,'Order_Report_'+xlFile(o.docNo||o.no));
+}
 function exportPlanXlsx(id){
   const p=S.plans.find(x=>x.id===id);if(!p)return;
   xlsxFromHtml([{name:xlName(p.docNo||p.no),html:reqDocHtml(p)}],'WorkOrder_'+xlFile(p.docNo||p.no));
@@ -1936,7 +1948,7 @@ function renderSumPage(){
   const row=(o,fin)=>{const m=mx(o),n=(o.byproducts||[]).filter(b=>+b.kg>0).length;
     return `<div class="sumrow"><div class="sinfo"><b>${esc(o.typeName)}</b> <span class="code">${esc(o.no)}</span>
       <div class="hint">เสร็จ ${esc(dt(o.endAt))} · input ${m.hasIn?fmt(m.inKg)+' กก.':'ยังไม่ใส่'} · ผลพลอยได้ ${n} รายการ${fin&&o.sumAt?' · สรุปเมื่อ '+esc(dt(o.sumAt)):''}</div></div>
-      <div class="sbtn">${fin?`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button>`:`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">สรุปรายงาน</button>`}<button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button></div></div>`};
+      <div class="sbtn">${fin?`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button>`:`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">สรุปรายงาน</button>`}<button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button><button class="btn sm" data-act="xl-both" data-id="${o.id}">Excel ใบสั่ง+รายงาน</button></div></div>`};
   const h=(t,n)=>`<h3 style="margin:6px 0 0;grid-column:1/-1">${t} <span class="hint">(${n})</span></h3>`;
   $('#sumlist').innerHTML=h('รอสรุป',P.length)+(P.length?P.map(o=>row(o,false)).join(''):'<div class="empty" style="grid-column:1/-1"><div><b>ไม่มีงานที่ต้องสรุป</b><br>เมื่อผลิตเสร็จ รายการจะมาอยู่ที่นี่</div></div>')
     +(F.length?h('สรุปแล้ว',F.length)+F.map(o=>row(o,true)).join(''):'');
@@ -2505,6 +2517,7 @@ document.addEventListener('click',e=>{
     case 'xl-dash':exportDashXlsx();break;
     case 'xl-order':exportReportXlsx(id);break;
     case 'xl-plan':exportPlanXlsx(id);break;
+    case 'xl-both':exportBothXlsx(id);break;
     case 'xl-week':exportWeekXlsx();break;
     case 'xl-week-forms':exportWeekFormsXlsx();break;
     case 'print-order':printOrder(id);break;
