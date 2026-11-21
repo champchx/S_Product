@@ -926,6 +926,14 @@ async function init(){
 function toast(m,ms){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,ms||2800)}
 function notice(m){const n=$('#notice');n.textContent=m;n.hidden=!m}
 function bar(f){return '<div class="bar">'+(f||[]).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})" title="${esc(x.name)} ${fmt(x.pct)}%"></span>`).join('')+'</div>'}
+/* เลขที่ (เลขที่ใบคุณภาพ เช่น 69-4-11037): ใบใหม่รันต่อจากเลขล่าสุด -> 69-4-11038 */
+function nextDocNo(){
+  const L=[];S.plans.concat(S.orders).forEach(o=>{const m=/^(.*?)(\d+)$/.exec((o.docNo||'').trim());if(m)L.push({pre:m[1],n:parseInt(m[2],10),w:m[2].length,t:o.createdAt||0})});
+  if(!L.length)return '';
+  const last=L.reduce((a,b)=>b.t>a.t||(b.t===a.t&&b.n>a.n)?b:a);
+  const same=L.filter(x=>x.pre===last.pre),mx=same.reduce((a,x)=>Math.max(a,x.n),0),w=same.reduce((a,x)=>Math.max(a,x.w),0);
+  return last.pre+String(mx+1).padStart(w,'0');
+}
 function orderNo(){const p='SP-B0PD26-0';let max=0;S.orders.concat(S.plans).forEach(o=>{if((o.no||'').startsWith(p))max=Math.max(max,parseInt(o.no.slice(p.length))||0)});return p+String(max+1).padStart(3,'0')}
 function openModal(html,mount){$('#sheet').innerHTML=html;$('#modal').hidden=false;document.body.style.overflow='hidden';if(mount)mount();const f=$('#sheet input:not([readonly]),#sheet select');if(f&&!f.value)f.focus()}
 function closeModal(){$('#modal').hidden=true;$('#sheet').innerHTML='';document.body.style.overflow=''}
@@ -1346,7 +1354,7 @@ function orderForm(id,planId){
   <div id="f-prev"></div>
   <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${o&&inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${o&&(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
-  <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):''))}" placeholder="เช่น 69-4-....."></div>
+  <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):nextDocNo()))}" placeholder="เช่น 69-4-....."></div>
   <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note||'':''))}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
     const prev=()=>{
@@ -2384,7 +2392,7 @@ function planForm(id){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="p-start">วันเวลาเริ่มต้น (แผน)</label><input id="p-start" type="datetime-local" value="${esc(p&&p.planStart||'')}"></div>
   <div class="field"><label for="p-end">วันเวลาสิ้นสุด (แผน)</label><input id="p-end" type="datetime-local" value="${esc(p&&p.planEnd||'')}"></div></div>
   <div class="field"><label for="p-for">เพื่อทำออเดอร์</label><input id="p-for" maxlength="80" value="${esc(p?(p.forName||''):'')}" placeholder="เช่น ชื่อลูกค้า / มาร์เก็ตติ้ง"></div>
-  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-......"></div>
+  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):nextDocNo())}" placeholder="เช่น 69-4-......"></div>
   <div class="field"><label for="p-pnote">หมายเหตุแผน</label><textarea id="p-pnote" maxlength="300" rows="2" placeholder="เช่น รอวัตถุดิบ / ผลิตต่อจากล็อตก่อน / เร่งด่วน">${esc(p?(p.planNote||''):'')}</textarea><div class="hint" style="margin-top:4px">แสดงเฉพาะในแผนการผลิต (รายการ รายละเอียด ตารางแผนรายสัปดาห์) ไม่ลงในใบสั่งงาน/ใบรายงาน และไม่ไปที่หมายเหตุของรายการผลิต</div></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
