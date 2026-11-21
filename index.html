@@ -299,6 +299,8 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .orow .om b{font-weight:600;overflow-wrap:anywhere}
 .orow .ot{color:var(--muted);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
 .orow .chev{color:var(--muted);font-size:20px}
+.orow .pnote{grid-column:1/-1;font-size:13px;color:#7a5200;background:#fff6dd;border:1px solid #f0dca0;border-radius:6px;padding:3px 8px;overflow-wrap:anywhere;white-space:pre-line}
+@media (prefers-color-scheme:dark){html:not([data-theme=light]) .orow .pnote{color:#f3d58a;background:#3a2f12;border-color:#5a4a1c}}
 @media (max-width:560px){.orow{grid-template-columns:auto 1fr auto}.orow .ot{grid-column:1/-1;text-align:left}}
 .sheet .detail{grid-template-columns:1fr}
 .ck{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;background:var(--surface)}
@@ -935,7 +937,7 @@ const evMine=()=>S.events.filter(evVisible);
 const ntUnread=()=>{const t=ntSeen();return evMine().filter(x=>x.t>t).length};
 function evFor(coll,old,nw){
   const no=nw.no||'',nm=nw.typeName||'';
-  if(coll==='plans')return old?[]:[{k:'plan',to:'all',text:`📋 แผนการผลิตใหม่ ${no} · ${nm} ${fmt(nw.qty)} กก.`}];
+  if(coll==='plans')return old?[]:[{k:'plan',to:'all',text:`📋 แผนการผลิตใหม่ ${no} · ${nm} ${fmt(nw.qty)} กก.${nw.planNote?` · 📝 ${nw.planNote.replace(/\s*\n\s*/g,' / ')}`:''}`}];
   if(coll!=='orders')return [];
   if(!old)return [{k:'start',to:'all',oid:nw.id,text:`▶️ เริ่มการผลิต ${no} · ${nm}`}];
   const so=st(old),sn=st(nw),out=[];
@@ -1882,7 +1884,7 @@ function exportWeekXlsx(){
   if(!S.pwk){toast('เลือกสัปดาห์ก่อน');return}
   const list=weekPlans(S.pwk);if(!list.length){toast('ไม่มีแผนการผลิตในสัปดาห์นี้');return}
   xlsxFromHtml([{name:'แผนสัปดาห์',html:weekDocHtml(S.pwk,list),land:true,
-    pick:box=>{const t=box.querySelector('table.wk');const r=t.insertRow(0);r.innerHTML='<td colspan="10" style="font-weight:700;font-size:20px;text-align:left;padding:4px">แผนการผลิตประจำสัปดาห์ '+esc(weekLabel(S.pwk))+'</td>';return t}}],
+    pick:box=>{const t=box.querySelector('table.wk');const r=t.insertRow(0);r.innerHTML='<td colspan="11" style="font-weight:700;font-size:20px;text-align:left;padding:4px">แผนการผลิตประจำสัปดาห์ '+esc(weekLabel(S.pwk))+'</td>';return t}}],
     'ProductionPlan_Week_'+xlFile(S.pwk),{font:'Tahoma',fit:'width',width:1000});
 }
 function exportDashXlsx(){
@@ -2242,7 +2244,7 @@ async function planUpdateForm(){
   <h3 style="margin:4px 0 0">กำลังผลิต <span class="hint">(${run.length})</span></h3>
   <div class="list">${run.length?run.map(o=>li(`<b>${esc(o.no)}</b> ${esc(o.typeName)} · ${fmt(o.qty)} กก.`,STL[st(o)]||'')).join(''):'<div class="hint">ไม่มีงานที่กำลังผลิต</div>'}</div>
   <h3 style="margin:4px 0 0">คิวรอผลิต <span class="hint">(${q.length} แผน)</span></h3>
-  <div class="list">${q.length?q.slice(0,15).map((p,i)=>li(`${i+1}. <b>${esc(p.no)}</b> ${esc(p.typeName)} · ${fmt(p.qty)} กก.`,p.plannedDate?dd(p.plannedDate):'')).join('')+(q.length>15?`<div class="hint">… และอีก ${q.length-15} แผน</div>`:''):'<div class="hint">ไม่มีแผนที่รอเริ่มผลิต</div>'}</div>
+  <div class="list">${q.length?q.slice(0,15).map((p,i)=>li(`${i+1}. <b>${esc(p.no)}</b> ${esc(p.typeName)} · ${fmt(p.qty)} กก.${p.planNote?` <span class="hint">📝 ${esc(p.planNote)}</span>`:''}`,p.plannedDate?dd(p.plannedDate):'')).join('')+(q.length>15?`<div class="hint">… และอีก ${q.length-15} แผน</div>`:''):'<div class="hint">ไม่มีแผนที่รอเริ่มผลิต</div>'}</div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="pu-ok">ส่งอัปเดตเข้า LINE</button></div>`,()=>{
     $('#pu-ok').onclick=async()=>{
       const b=$('#pu-ok');b.disabled=true;
@@ -2268,16 +2270,16 @@ function weekPlans(mon){
 function weekDocHtml(mon,list){
   const pos=new Map(planQueue().map((p,i)=>[p.id,i+1])),e=esc;
   const rows=list.map((p,i)=>{const code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'';
-    return `<tr><td class="c">${i+1}</td><td class="c">${pos.get(p.id)||'–'}</td><td>${e(p.no)}${p.docNo?'<br>'+e(p.docNo):''}</td><td>${e(code)}</td><td>${e(p.typeName)}</td><td>${e(p.forName||'')}</td><td class="r">${fmt(p.qty)}</td><td class="c">${dd(p.plannedDate)}</td><td class="c">${p.planStart?fmHM(p.planStart):''}${p.planEnd?'<br>'+fmHM(p.planEnd):''}</td><td class="c">${LABEL[planState(p)]}</td></tr>`}).join('');
-  const blank=Math.max(0,12-list.length),pad=`<tr>${'<td>&nbsp;</td>'.repeat(10)}</tr>`.repeat(blank);
+    return `<tr><td class="c">${i+1}</td><td class="c">${pos.get(p.id)||'–'}</td><td>${e(p.no)}${p.docNo?'<br>'+e(p.docNo):''}</td><td>${e(code)}</td><td>${e(p.typeName)}</td><td>${e(p.forName||'')}</td><td class="r">${fmt(p.qty)}</td><td class="c">${dd(p.plannedDate)}</td><td class="c">${p.planStart?fmHM(p.planStart):''}${p.planEnd?'<br>'+fmHM(p.planEnd):''}</td><td class="c">${LABEL[planState(p)]}</td><td>${e(p.planNote||'')}</td></tr>`}).join('');
+  const blank=Math.max(0,12-list.length),pad=`<tr>${'<td>&nbsp;</td>'.repeat(11)}</tr>`.repeat(blank);
   const who=isAdmin()?'ธุรการ':(S.nick||'พนักงาน'),t=new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
   const lg=(/<img src='(data:image[^']+)'/.exec(XL.report.html)||[])[1];
   return `<div class="xlbox wkdoc"><table class="wkh"><tr><td class="lg" rowspan="3">${lg?`<img src="${lg}" alt="BSCM" style="height:58px;max-width:100%;object-fit:contain">`:'<b>BSCM</b>'}</td><td><span class="lb">ITEM</span> แผนการผลิตประจำสัปดาห์</td><td class="rt"><span class="lb">Eff.Date</span></td></tr>
   <tr><td><span class="lb">DOC.No.</span></td><td class="rt"><span class="lb">REV.</span></td></tr>
   <tr><td><span class="lb">REF.</span></td><td class="rt"><span class="lb">PAGE</span> 1/1</td></tr></table>
   <div class="sub" style="margin:10px 0 8px;font-size:15px"><b>สัปดาห์ ${e(weekLabel(mon))}</b></div>
-  <table class="wk">${cw([5,6,16,12,16,15,9,11,12,8])}<thead><tr><th>ที่</th><th>คิว</th><th>เลขที่ใบสั่ง / เอกสาร</th><th>รหัสสูตร</th><th>ชนิดข้าว</th><th>เพื่อทำออเดอร์</th><th>จำนวน (กก.)</th><th>วันที่ผลิต</th><th>เวลาตามแผน</th><th>สถานะ</th></tr></thead><tbody>${rows}${pad}</tbody>
-  <tfoot><tr><td colspan="6" class="r"><b>รวม ${list.length} แผน</b></td><td class="r"><b>${fmt(list.reduce((a,p)=>a+(+p.qty||0),0))}</b></td><td colspan="3"></td></tr></tfoot></table>
+  <table class="wk">${cw([4,5,13,10,13,12,8,9,10,7,9])}<thead><tr><th>ที่</th><th>คิว</th><th>เลขที่ใบสั่ง / เอกสาร</th><th>รหัสสูตร</th><th>ชนิดข้าว</th><th>เพื่อทำออเดอร์</th><th>จำนวน (กก.)</th><th>วันที่ผลิต</th><th>เวลาตามแผน</th><th>สถานะ</th><th>หมายเหตุ</th></tr></thead><tbody>${rows}${pad}</tbody>
+  <tfoot><tr><td colspan="6" class="r"><b>รวม ${list.length} แผน</b></td><td class="r"><b>${fmt(list.reduce((a,p)=>a+(+p.qty||0),0))}</b></td><td colspan="4"></td></tr></tfoot></table>
   <div class="sub" style="margin-top:6px;font-size:11px;text-align:right">พิมพ์เมื่อ ${e(t)} โดย ${e(who)}</div></div>`;
 }
 function printWeek(){
@@ -2297,6 +2299,7 @@ function planRow(p,qi,qn,orig){
     <span class="pill ${s0}">${LABEL[s0]}</span>
     <span class="om"><b>${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(p.no)}</span></span>
     <span class="ot">${fmt(p.qty)} กก. · ผลิต ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}${ro&&orig&&orig!==qi?` · <span class="chg">เดิมลำดับ ${orig}</span>`:''}</span>
+    ${p.planNote?`<span class="pnote">📝 ${esc(p.planNote)}</span>`:''}
     <span class="pa">${ro?`<button class="btn sm" data-act="plan-top" data-id="${p.id}" aria-label="ย้ายไปลำดับแรก" ${qi===1?'disabled':''}>⤒</button><button class="btn sm" data-act="plan-up" data-id="${p.id}" aria-label="เลื่อนขึ้น" ${qi===1?'disabled':''}>▲</button><button class="btn sm" data-act="plan-down" data-id="${p.id}" aria-label="เลื่อนลง" ${qi===qn?'disabled':''}>▼</button>`:'<span class="chev" aria-hidden="true">›</span>'}</span></div>`;
 }
 function renderPlans(){
@@ -2333,6 +2336,7 @@ function planDetail(id){
     <div class="name">${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</div></div><button class="btn sm" data-act="close">ปิด</button></div>
   <div class="meta">${qi?`<span>ลำดับการผลิต <b>${qi}</b></span>`:''}<span>จำนวน <b>${fmt(p.qty)} กก.</b></span><span>วันที่ผลิต <b>${p.plannedDate?dd(p.plannedDate):'ไม่ระบุ'}</b></span></div>
   ${p.docNo?`<div class="hint">เลขที่: <b>${esc(p.docNo)}</b></div>`:''}
+  ${p.planNote?`<div class="notice" style="background:#fff6dd;color:#7a5200;white-space:pre-line">📝 หมายเหตุแผน: ${esc(p.planNote)}</div>`:''}
   ${p.note?`<div class="hint">หมายเหตุ: ${esc(p.note)}</div>`:''}
   ${s0==='open'?`<div class="hint">การเริ่มผลิตทำที่หน้า “รายการผลิต” → เริ่มการผลิตจากแผน</div>`:''}
   ${o?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">เริ่มผลิตเมื่อ ${dt(o.startAt)} · ${LABEL[st(o)]}</div>`:''}
@@ -2343,7 +2347,7 @@ function planForm(id){
   const p=id?S.plans.find(x=>x.id===id):null,locked=!!(p&&p.status==='started');
   if(!S.types.length){toast('เพิ่มชนิดข้าวและสูตรก่อนออกใบสั่งผลิต');setTab('recipes');return}
   const queue=planQueue(),curPos=p&&!locked?queue.findIndex(x=>x.id===p.id)+1:0,maxPos=queue.length+(p&&!locked?0:1);
-  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่และเลขที่</div>':''}
+  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่ เลขที่ และหมายเหตุแผน</div>':''}
   <div class="grid2">
     <div class="field"><label for="p-no">เลขที่ใบสั่ง</label><input id="p-no" value="${esc(p?p.no:orderNo())}" ${locked?'readonly':''}></div>
     <div class="field"><label for="p-date">วันที่ผลิต (แผน)</label><input id="p-date" type="date" value="${esc(p?p.plannedDate:'')}"></div>
@@ -2359,7 +2363,8 @@ function planForm(id){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="p-start">วันเวลาเริ่มต้น (แผน)</label><input id="p-start" type="datetime-local" value="${esc(p&&p.planStart||'')}"></div>
   <div class="field"><label for="p-end">วันเวลาสิ้นสุด (แผน)</label><input id="p-end" type="datetime-local" value="${esc(p&&p.planEnd||'')}"></div></div>
   <div class="field"><label for="p-for">เพื่อทำออเดอร์</label><input id="p-for" maxlength="80" value="${esc(p?(p.forName||''):'')}" placeholder="เช่น ชื่อลูกค้า / มาร์เก็ตติ้ง"></div>
-  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-......"></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
+  <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):'')}" placeholder="เช่น 69-4-......"></div>
+  <div class="field"><label for="p-pnote">หมายเหตุแผน</label><textarea id="p-pnote" maxlength="300" rows="2" placeholder="เช่น รอวัตถุดิบ / ผลิตต่อจากล็อตก่อน / เร่งด่วน">${esc(p?(p.planNote||''):'')}</textarea><div class="hint" style="margin-top:4px">แสดงเฉพาะในแผนการผลิต (รายการ รายละเอียด ตารางแผนรายสัปดาห์) ไม่ลงในใบสั่งงาน/ใบรายงาน และไม่ไปที่หมายเหตุของรายการผลิต</div></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
       $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
@@ -2377,7 +2382,7 @@ function planForm(id){
       if(!no)return toast('กรอกเลขที่ใบสั่ง');
       if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
       const formula=p&&p.typeId===t.id?p.formula:t.formula;
-      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value]).filter(x=>x[1])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
+      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planNote:$('#p-pnote').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value]).filter(x=>x[1])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
       const pid=p?p.id:uid();let ops;
       if(locked)ops=[['plans',pid,doc]];
       else{
