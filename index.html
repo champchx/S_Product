@@ -1946,7 +1946,9 @@ async function resendLine(id,final){
   try{await api({action:'resend',id,...(final?{final:true}:{})});toast('ส่งสรุปรายงานเข้า LINE แล้ว');return true}
   catch(e){fail('ส่ง LINE ไม่สำเร็จ',e);return false}
 }
-function sRow(b,o){b=b||{};return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${b.tank===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
+/* ตู้/ถังผลพลอยได้ตามใบสั่งผลิต (แผน) */
+const bpTankOf=(o,n)=>{const p=o&&S.plans.find(x=>x.id===o.planId||x.orderId===o.id);return(p&&p.bpTanks&&p.bpTanks[n])||''};
+function sRow(b,o){b=b||{};const tk=b.tank||bpTankOf(o,b.name);return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${tk===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
 let lossO=null;
 function lossRow(p){p=p||{};const c=p.cat||(p.from?pauseCat(p):'');
   let segSel='';
@@ -1967,7 +1969,7 @@ function summaryForm(id){
   <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
   <div class="field"><span class="lbl">ผลพลอยได้ ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span><datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
-    <div class="lines" id="s-bp">${(cur.length?cur:[null]).map(b=>sRow(b,o)).join('')}</div>
+    <div class="lines" id="s-bp">${(cur.length?cur:(defs.filter(d=>bpTankOf(o,d.name)).map(d=>({name:d.name,code:d.code}))||[null])).concat([]).map(b=>sRow(b,o)).join('')||sRow(null,o)}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
   ${hasOff(o)?'<div class="notice" id="s-alloc" style="white-space:pre-line"></div>':''}
   <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + รายละเอียด จะแสดงในใบรายงาน · ใส่เวลาหรือไม่ก็ได้${hasOff(o)?' · เลือกช่วงที่ของแต่ละรายการ':''})</span>
@@ -1978,7 +1980,7 @@ function summaryForm(id){
     const rd=()=>[...document.querySelectorAll('#s-bp .sr')].map(r=>({name:r.querySelector('[data-sn]').value.trim(),code:r.querySelector('[data-sc]').value.trim(),kg:Math.round(parseFloat(r.querySelector('[data-sk]').value)||0),tank:r.querySelector('[data-st]').value})).filter(x=>x.name&&x.kg>0);
     const sum=()=>{wSum();if(!$('#s-sum'))return;const w=readWeights().reduce((a,x)=>a+x.kg,0),by=rd(),k=by.reduce((a,x)=>a+x.kg,0);$('#s-sum').style.whiteSpace='pre-line';$('#s-sum').textContent=by.length?by.map(x=>`${x.name}${x.code?' ('+x.code+')':''}  ${fmt(x.kg)} กก.${w?' = '+pctOf(x.kg,w):''}`).join('\n')+`\nผลพลอยได้รวม ${fmt(k)} กก.${w?' · ข้าวที่ผลิตได้ '+fmt(w-k)+' กก. = '+pctOf(w-k,w):''}`:''};
     $('#sheet').addEventListener('input',sum);
-    $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim())||catByName(n.value);if(d&&!c.value)c.value=d.code;sum()});
+    $('#sheet').addEventListener('change',e=>{const n=e.target.closest('[data-sn]');if(!n)return;const c=n.closest('.sr').querySelector('[data-sc]');const d=defs.find(x=>x.name===n.value.trim())||catByName(n.value);if(d&&!c.value)c.value=d.code;const sl=n.closest('.sr').querySelector('[data-st]');if(sl&&!sl.value){const tk=bpTankOf(o,n.value.trim());if(tk)sl.value=tk}sum()});
     const alloc=()=>{
       const el=$('#s-alloc');if(!el)return;
       const W=readWeights(),tw=W.reduce((a,x)=>a+x.kg,0),by=rd(),tb=by.reduce((a,x)=>a+x.kg,0),sh=segShares(o),nets=segNets(o),T=nets.reduce((a,b)=>a+b,0);
