@@ -590,6 +590,7 @@ html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
       <button class="btn sm" data-act="xl-week" id="pwk-x1">Excel แผนสัปดาห์</button>
       <button class="btn sm" data-act="xl-week-forms" id="pwk-x2">Excel ใบสั่งงานทั้งสัปดาห์</button>
       <button class="btn sm" data-act="reord-start" id="reordbtn">จัดลำดับแผน</button>
+      <button class="btn sm" data-act="plan-sync-all" id="plansync" hidden>อัปเดตสูตรในแผน</button>
       <button class="btn sm primary" data-act="plan-update" id="planupd" hidden>อัปเดตแผนปัจจุบัน</button>
       </div>
     </div>
@@ -2128,7 +2129,10 @@ function typeForm(id){
       if(Math.abs(sum-100)>0.005)return toast('ส่วนผสมรวมต้องเท่ากับ 100%');
       const bp=readBp();if(bp.some(x=>!x.name))return toast('ผลพลอยได้ทุกรายการต้องมีชื่อ');
       const doc={...(t||{}),name,code,note:$('#t-note').value.trim(),formula:rows,bp,createdAt:t?t.createdAt:Date.now(),updatedAt:Date.now()};delete doc.id;
-      if(await put('riceTypes',t?t.id:uid(),doc)){closeModal();toast('บันทึกชนิดข้าวแล้ว')}
+      const tid=t?t.id:uid();
+      if(await put('riceTypes',tid,doc)){closeModal();toast('บันทึกชนิดข้าวแล้ว');
+        const L=t?stalePlans(tid):[];
+        if(L.length&&window.confirm(`มีใบสั่งผลิตที่ยังไม่เริ่มผลิต ${L.length} รายการ ใช้สูตรเดิมอยู่\n${L.slice(0,8).map(p=>p.no).join(', ')}${L.length>8?' …':''}\n\nต้องการอัปเดตเป็นสูตรใหม่เลยไหม ?\n(แผนที่เริ่มผลิตแล้วจะไม่ถูกเปลี่ยน)`))await syncPlans(L)}
     };
   });
 }
@@ -2253,6 +2257,17 @@ function renderDash(){
 
 /* ---------- production plans ---------- */
 function planState(p){if(p.status!=='started')return'open';const o=S.orders.find(x=>x.id===p.orderId);return o?st(o):'running'}
+/* ---------- อัปเดตสูตรข้าวในแผน (เมื่อแก้สูตรข้าวภายหลัง) ---------- */
+const fKey=f=>JSON.stringify((f||[]).map(x=>[x.name,x.code||'',+x.pct||0,x.src||'']));
+const planStale=p=>{if(!p||p.status==='started'||planState(p)!=='open')return false;const t=S.types.find(x=>x.id===p.typeId);return !!t&&(fKey(p.formula)!==fKey(t.formula)||(p.code||'')!==(t.code||'')||p.typeName!==t.name)};
+const stalePlans=tid=>S.plans.filter(p=>(!tid||p.typeId===tid)&&planStale(p));
+function syncedPlan(p){const t=S.types.find(x=>x.id===p.typeId),bt={...(p.bpTanks||{})};bpDefs({typeId:t.id}).forEach(d=>{if(!(d.name in bt))bt[d.name]='A1A1'});const d={...p,typeName:t.name,code:t.code||'',formula:t.formula,bpTanks:bt};delete d.id;return d}
+async function syncPlans(list){
+  if(!list.length)return false;
+  const ok=await putMany(list.map(p=>['plans',p.id,syncedPlan(p)]));
+  if(ok){emitEv({k:'plan',to:'all',text:`🔄 อัปเดตสูตรข้าวในแผน ${list.length} รายการ (${list.slice(0,3).map(p=>p.no).join(', ')}${list.length>3?' …':''})`});toast(`อัปเดตสูตรในแผน ${list.length} รายการแล้ว`)}
+  return ok;
+}
 function planQueue(){return S.plans.filter(p=>planState(p)==='open').sort((a,b)=>((a.seq==null?1e9:a.seq)-(b.seq==null?1e9:b.seq))||(a.plannedDate||'9').localeCompare(b.plannedDate||'9')||(a.createdAt||0)-(b.createdAt||0))}
 function seqOps(list){const ops=[];list.forEach((p,i)=>{if(p.seq!==i+1){const d={...p,seq:i+1};delete d.id;ops.push(['plans',p.id,d])}});return ops}
 /* ---------- ปรับลำดับแผน (ร่าง → ยืนยัน → บันทึกครั้งเดียว → LINE ครั้งเดียว) ---------- */
@@ -2348,7 +2363,7 @@ function planRow(p,qi,qn,orig){
     <span class="pill ${s0}">${LABEL[s0]}</span>
     <span class="om"><b>${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(p.no)}</span></span>
     <span class="ot">${fmt(p.qty)} กก. · ผลิต ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}${ro&&orig&&orig!==qi?` · <span class="chg">เดิมลำดับ ${orig}</span>`:''}</span>
-    ${p.planNote?`<span class="pnote">📝 ${esc(p.planNote)}</span>`:''}
+    ${p.planNote?`<span class="pnote">📝 ${esc(p.planNote)}</span>`:''}${isAdmin()&&planStale(p)?`<span class="pnote">🔄 สูตรข้าวมีการแก้ไข · ยังไม่อัปเดตในแผน</span>`:''}
     <span class="pa">${ro?`<button class="btn sm" data-act="plan-top" data-id="${p.id}" aria-label="ย้ายไปลำดับแรก" ${qi===1?'disabled':''}>⤒</button><button class="btn sm" data-act="plan-up" data-id="${p.id}" aria-label="เลื่อนขึ้น" ${qi===1?'disabled':''}>▲</button><button class="btn sm" data-act="plan-down" data-id="${p.id}" aria-label="เลื่อนลง" ${qi===qn?'disabled':''}>▼</button>`:'<span class="chev" aria-hidden="true">›</span>'}</span></div>`;
 }
 function renderPlans(){
@@ -2360,7 +2375,7 @@ function renderPlans(){
   if(!isAdmin())S.reord=null;
   const orig0={};planQueue().forEach((p,i)=>orig0[p.id]=i+1);
   const queue=draftQueue(),qn=queue.length,qidx={};queue.forEach((p,i)=>qidx[p.id]=i+1);
-  $('#pwk-l').textContent=weekLabel(S.pwk);$('#reordbtn').hidden=!isAdmin()||!!S.reord;$('#planupd').hidden=!isAdmin()||!!S.reord;
+  $('#pwk-l').textContent=weekLabel(S.pwk);$('#reordbtn').hidden=!isAdmin()||!!S.reord;$('#planupd').hidden=!isAdmin()||!!S.reord;{const n=isAdmin()&&!S.reord?stalePlans().length:0;$('#plansync').hidden=!n;$('#plansync').textContent=`อัปเดตสูตรในแผน (${n})`}
   ['#pwk-p1','#pwk-p2','#pwk-x1','#pwk-x2'].forEach(k=>{$(k).disabled=!S.pwk;$(k).title=S.pwk?'':'เลือกสัปดาห์ก่อนพิมพ์'});
   $('#psummary').innerHTML=`<div><b>${qn}</b><span>รอเริ่มผลิต (${fmt(queue.reduce((a,p)=>a+(+p.qty||0),0))} กก.)</span></div><div><b>${S.plans.length-qn}</b><span>เริ่มผลิตแล้ว</span></div><div><b>${S.plans.length}</b><span>แผนทั้งหมด</span></div>`;
   const q=S.pq.trim().toLowerCase();
@@ -2387,6 +2402,7 @@ function planDetail(id){
   ${p.docNo?`<div class="hint">เลขที่: <b>${esc(p.docNo)}</b></div>`:''}
   ${p.planNote?`<div class="notice" style="background:#fff6dd;color:#7a5200;white-space:pre-line">📝 หมายเหตุแผน: ${esc(p.planNote)}</div>`:''}
   ${p.note?`<div class="hint">หมายเหตุ: ${esc(p.note)}</div>`:''}
+  ${isAdmin()&&planStale(p)?`<div class="notice" style="background:#fff6dd;color:#7a5200">🔄 สูตรข้าวนี้ถูกแก้ไขแล้ว สูตรในแผนยังเป็นของเดิม <button class="btn sm" data-act="plan-sync" data-id="${p.id}" style="margin-left:6px">อัปเดตสูตรตามล่าสุด</button></div>`:''}
   ${s0==='open'?`<div class="hint">การเริ่มผลิตทำที่หน้า “รายการผลิต” → เริ่มการผลิตจากแผน</div>`:''}
   ${o?`<div class="notice" style="background:var(--accent-soft);color:var(--accent)">เริ่มผลิตเมื่อ ${dt(o.startAt)} · ${LABEL[st(o)]}</div>`:''}
   <div><h3 class="lbl" style="margin-bottom:6px">สูตรผสม (คำนวณจาก ${fmt(p.qty)} กก.)</h3>${bar(p.formula)}<div style="margin-top:6px">${ing}</div></div>
@@ -2413,6 +2429,7 @@ function planForm(id){
   <div class="field"><label for="p-end">วันเวลาสิ้นสุด (แผน)</label><input id="p-end" type="datetime-local" value="${esc(p&&p.planEnd||'')}"></div></div>
   <div class="field"><label for="p-for">เพื่อทำออเดอร์</label><input id="p-for" maxlength="80" value="${esc(p?(p.forName||''):'')}" placeholder="เช่น ชื่อลูกค้า / มาร์เก็ตติ้ง"></div>
   <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):nextDocNo())}" placeholder="เช่น 69-4-......"></div>
+  ${p&&!locked&&planStale(p)?`<div class="field"><label class="ck"><input type="checkbox" id="p-sync" checked>อัปเดตสูตรเป็นสูตรข้าวล่าสุด (สูตรข้าวนี้ถูกแก้ไขหลังออกใบสั่ง)</label></div>`:''}
   <div class="field"><label for="p-pnote">หมายเหตุแผน</label><textarea id="p-pnote" maxlength="300" rows="2" placeholder="เช่น รอวัตถุดิบ / ผลิตต่อจากล็อตก่อน / เร่งด่วน">${esc(p?(p.planNote||''):'')}</textarea><div class="hint" style="margin-top:4px">แสดงเฉพาะในแผนการผลิต (รายการ รายละเอียด ตารางแผนรายสัปดาห์) ไม่ลงในใบสั่งงาน/ใบรายงาน และไม่ไปที่หมายเหตุของรายการผลิต</div></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
@@ -2430,7 +2447,7 @@ function planForm(id){
       const t=S.types.find(x=>x.id===$('#p-type').value),qty=parseFloat($('#p-qty').value),no=$('#p-no').value.trim();
       if(!no)return toast('กรอกเลขที่ใบสั่ง');
       if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
-      const formula=p&&p.typeId===t.id?p.formula:t.formula;
+      const formula=p&&p.typeId===t.id&&!($('#p-sync')&&$('#p-sync').checked)?p.formula:t.formula;
       const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planNote:$('#p-pnote').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
       const pid=p?p.id:uid();let ops;
       if(locked)ops=[['plans',pid,doc]];
@@ -2508,7 +2525,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const id=b.dataset.id;
   const act=b.dataset.act;
-  if(['edit-order','del-order','sum-edit','sum-line','edit-type','del-type','reopen','del-pause','pw','weight','new-type','new-user','edit-user','del-user','seed','new-plan','edit-plan','del-plan','plan-up','plan-down','plan-top','reord-start','reord-save','reord-cancel','plan-update'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
+  if(['edit-order','del-order','sum-edit','sum-line','edit-type','del-type','reopen','del-pause','pw','weight','new-type','new-user','edit-user','del-user','seed','new-plan','edit-plan','del-plan','plan-up','plan-down','plan-top','reord-start','reord-save','reord-cancel','plan-update','plan-sync','plan-sync-all'].includes(act)&&!isAdmin()){toast('เฉพาะธุรการเท่านั้น');return}
   if(act==='record'){const o=S.orders.find(x=>x.id===id);if(o&&o.status==='done'&&!isAdmin()){toast('เฉพาะธุรการแก้ไขผลที่บันทึกแล้วได้');return}}
   switch(act){
     case 'jumbo':{const jb=b.closest('.bpr').querySelector('.jb');jb.hidden=!jb.hidden;if(!jb.hidden)jb.querySelector('input').focus();break}
@@ -2517,6 +2534,8 @@ document.addEventListener('click',e=>{
     case 'plan-up':movePlan(id,-1);break;
     case 'plan-top':movePlan(id,'top');break;
     case 'plan-update':planUpdateForm();break;
+    case 'plan-sync':{const p=S.plans.find(x=>x.id===id);if(p&&planStale(p))syncPlans([p]).then(ok=>{if(ok)planDetail(id)});break}
+    case 'plan-sync-all':{const L=stalePlans();if(!L.length)break;if(window.confirm(`อัปเดตสูตรในใบสั่งผลิตที่ยังไม่เริ่มผลิต ${L.length} รายการ ให้ตรงกับสูตรข้าวล่าสุด ?\n${L.slice(0,8).map(p=>p.no).join(', ')}${L.length>8?' …':''}\n(แผนที่เริ่มผลิตแล้วไม่ถูกเปลี่ยน)`))syncPlans(L);break}
     case 'reord-start':S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='all';renderPlans();break;
     case 'reord-cancel':S.reord=null;renderPlans();break;
     case 'reord-save':reordSave();break;
