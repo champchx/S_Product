@@ -332,6 +332,8 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .line.wr{grid-template-columns:minmax(0,1fr) 130px 92px 104px 36px}
 .line.wr>[data-ws]{grid-column:1/-1}
 .line.fr{grid-template-columns:minmax(0,1fr) 170px 84px 36px}
+.line.fr>[data-fs]{grid-column:1/-1;border-style:dashed;font-size:14px;min-height:38px}
+.srcn{font-size:12px;color:var(--muted);font-weight:400}
 .line.br{grid-template-columns:minmax(0,1fr) 170px 36px}
 .line.sr{grid-template-columns:minmax(0,1fr) 120px 84px 36px}
 .line.sr>[data-st]{grid-column:1/-1}
@@ -785,6 +787,10 @@ const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.
 const MONL=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const DOW=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 const tn=kg=>Number((kg||0)/1000).toLocaleString('th-TH',{maximumFractionDigits:3});
+/* สถานที่มาของวัตถุดิบ: ใช้ค่าจากสูตร (formula[].src) เป็นค่าตั้งต้น ถ้ายังไม่ได้กรอกที่น้ำหนัก input */
+let WSRC={};
+function fsrcMap(o){const m={};const add=f=>(f||[]).forEach(x=>{if(x&&x.name&&x.src&&!m[x.name])m[x.name]=x.src});add(o&&o.formula);const t=o&&S.types.find(z=>z.id===o.typeId);add(t&&t.formula);return m}
+const fsrcOf=(o,n)=>fsrcMap(o)[n]||'';
 const inputsOf=o=>(o.inputs||[]).map(x=>({name:x.name||'',code:x.code||'',tank:x.tank||'',kg:x.kg,src:x.src||''}));
 const tankTags=a=>(a||[]).length?a.map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—';
 const inTanksOf=o=>o.inTanks&&o.inTanks.length?o.inTanks:[...new Set(inputsOf(o).map(r=>r.tank).filter(Boolean))];
@@ -1044,10 +1050,10 @@ document.addEventListener('change',e=>{
   const t=e.target;if(!t||!t.matches||!t.closest('#sheet'))return;
   if(t.matches('[data-wk],[data-sk],[data-bp],#s-ncr')&&t.value!==''&&!t.readOnly){const v=Math.round(parseFloat(t.value));if(!isNaN(v))t.value=v}
   const row=t.closest('.line');if(!row)return;
-  if(t.matches('[data-nm]')){const c=row.querySelector('[data-cd]');if(c&&(!c.value.trim()||c.dataset.auto==='1')){const k=codeFor(t.value);c.value=k;c.dataset.auto=k?'1':''}}
+  if(t.matches('[data-nm]')){const ws=row.querySelector('[data-ws]');if(ws&&(!ws.value.trim()||ws.dataset.auto==='1')){const v=WSRC[t.value.trim()]||'';ws.value=v;ws.dataset.auto=v?'1':''}const c=row.querySelector('[data-cd]');if(c&&(!c.value.trim()||c.dataset.auto==='1')){const k=codeFor(t.value);c.value=k;c.dataset.auto=k?'1':''}}
   else if(t.matches('[data-cd]')){const n=row.querySelector('[data-nm]');if(n&&!n.value.trim()){const x=catByCode(t.value);if(x){n.value=x.name;n.dispatchEvent(new Event('input',{bubbles:true}))}}}
 });
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-cd]'))t.dataset.auto=''});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-cd],[data-ws]'))t.dataset.auto=''});
 
 /* ---------- login ---------- */
 const AV_COLORS=['#2E6B4F','#1F6F8B','#8B5E1F','#6B3FA0','#B03A48','#3C6E71','#7A6A1E','#4B5FB3'];
@@ -1243,7 +1249,7 @@ function segBlock(o){
 function orderDetail(id){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
   const s=st(o),done=s==='done',paused=s==='paused',code=codeOf(o),pauses=o.pauses||[];
-  const ing=(o.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${fmt(o.qty*x.pct/100)} กก.</b></div>`).join('');
+  const ing=(o.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%${x.src?` <span class="srcn">· ${esc(x.src)}</span>`:''}</span><b>${fmt(o.qty*x.pct/100)} กก.</b></div>`).join('');
   const loss=lossMin(o),endRef=done?o.endAt:nowLocal();
   const total=o.startAt?onShiftMin(o):0;
   const LS_=o.startAt&&!done?liveSec(o):{tot:0,loss:0,net:0,open:0};
@@ -1314,7 +1320,7 @@ function renderTypes(){
     return `<article class="card">
       <div><div class="name">${esc(t.name)}</div><div class="no"><span class="code">${esc(t.code||'ไม่มีรหัส')}</span> ใช้ใน ${used} รายการ</div></div>
       ${bar(t.formula)}
-      <div>${(t.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} </span><b>${fmt(x.pct)}%</b></div>`).join('')}</div>
+      <div>${(t.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)}${x.src?` <span class="srcn">· ${esc(x.src)}</span>`:''} </span><b>${fmt(x.pct)}%</b></div>`).join('')}</div>
       ${(t.bp&&t.bp.length)?`<div class="bpt"><b>ผลพลอยได้:</b>${t.bp.map(x=>`<span>${esc(x.name)}${x.code?` <span class="code">${esc(x.code)}</span>`:''}</span>`).join('')}</div>`:''}
       ${t.note?`<p class="hint" style="margin:0">${esc(t.note)}</p>`:''}
       ${isAdmin()?`<div class="actions"><button class="btn sm" data-act="edit-type" data-id="${t.id}">แก้ไข</button><button class="btn sm danger" data-act="del-type" data-id="${t.id}">ลบ</button></div>`:''}
@@ -1345,7 +1351,7 @@ function orderForm(id,planId){
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
     const prev=()=>{
       const t=S.types.find(x=>x.id===$('#f-type').value),q=parseFloat($('#f-qty').value)||0;
-      $('#f-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':'';
+      $('#f-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%${x.src?` <span class="srcn">· ${esc(x.src)}</span>`:''}</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':'';
     };
     $('#f-type').oninput=prev;$('#f-qty').oninput=prev;prev();
     $('#f-save').onclick=async()=>{
@@ -1369,6 +1375,7 @@ function orderForm(id,planId){
 /* ---------- input weights (admin only, free list) ---------- */
 function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn data-nm placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><input list="dl-code" data-wc data-cd placeholder="รหัส" aria-label="รหัสข้าว" value="${esc(r.code||'')}"><select data-wt aria-label="ถัง input"><option value="">ไม่ระบุถัง</option>${IN_TANKS.map(k=>`<option ${r.tank===k?'selected':''}>${k}</option>`).join('')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><input data-ws placeholder="สถานที่มา (ไม่บังคับ)" aria-label="สถานที่มา" value="${esc(r.src||'')}"></div>`}
 function weightFields(o,i,src){
+  WSRC=fsrcMap(o);
   const rows=(src||inputsOf(o)).filter(r=>+r.kg>0),sx=i==null?'':'-'+i;
   return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows${sx}">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w" data-t="#w-rows${sx}">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum${sx}"></div></div>`;
 }
@@ -1528,7 +1535,7 @@ function resultForm(id){
 /* ---------- rice type + formula ---------- */
 function bRow(x){return `<div class="line br"><input list="dl-ing" data-nm placeholder="เช่น ปลายเบอร์ 1" aria-label="ชื่อผลพลอยได้" value="${esc(x?x.name:'')}"><input list="dl-code" data-cd placeholder="รหัส เช่น W6MBP101" aria-label="รหัสผลพลอยได้" value="${esc(x&&x.code?x.code:'')}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
 function readBp(){return[...document.querySelectorAll('#t-bp .line')].map(r=>{const i=r.querySelectorAll('input');return{name:i[0].value.trim(),code:i[1].value.trim()}}).filter(x=>x.name||x.code)}
-function fRow(x){return `<div class="line fr"><input list="dl-ing" data-nm placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input list="dl-code" data-cd placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button></div>`}
+function fRow(x){return `<div class="line fr"><input list="dl-ing" data-nm placeholder="เช่น ข้าวหอมมะลิ" aria-label="ชื่อส่วนผสม" value="${esc(x?x.name:'')}"><input list="dl-code" data-cd placeholder="รหัส" aria-label="รหัสส่วนผสม" value="${esc(x&&x.code?x.code:'')}"><input type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="%" value="${x?x.pct:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><input data-fs placeholder="สถานที่มา (ไม่บังคับ)" aria-label="สถานที่มา" value="${esc(x&&x.src?x.src:'')}"></div>`}
 /* ---------- print / PDF ---------- */
 function printHeadHtml(title,sub){
   const who=isAdmin()?'ธุรการ':(S.nick||'พนักงาน'),t=new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
@@ -1619,7 +1626,7 @@ function reportDocHtml(o){
   V.N10=e(r.machineNo||'1');V.N11=m.rate!=null?fmt(m.rate):'';const dtf=t=>t?`<span class="dtf">${t}</span>`:'';V.N12=dtf(o.startAt?fmDT(o.startAt):'');V.N13=dtf(m.done?fmDT(o.endAt):'');
   V.N14=dep?m.total:'';V.N15=dep?(m.total/60).toFixed(2):'';
   V.U11=pcs(m.good);V.U12=pcs(m.avail);V.U13=pcs(m.util);V.U14=pcs(m.oee);
-  inputsOf(o).filter(x=>+x.kg>0).slice(0,6).forEach((x,i)=>{const r0=18+i;V['K'+r0]=e(x.code||fcode(x.name)||codeFor(x.name));V['M'+r0]=e(x.name);V['P'+r0]=e(x.src||'');V['Q'+r0]=fmt(x.kg);V['R'+r0]=pctOf(x.kg,m.inKg);V['S'+r0]=e(x.tank||'')});
+  inputsOf(o).filter(x=>+x.kg>0).slice(0,6).forEach((x,i)=>{const r0=18+i;V['K'+r0]=e(x.code||fcode(x.name)||codeFor(x.name));V['M'+r0]=e(x.name);V['P'+r0]=e(x.src||fsrcOf(o,x.name));V['Q'+r0]=fmt(x.kg);V['R'+r0]=pctOf(x.kg,m.inKg);V['S'+r0]=e(x.tank||'')});
   V.M24=e(o.forName||'');if(m.hasIn){V.Q24=fmt(m.inKg);V.R24='100%'}
   const bps=(o.byproducts||[]).filter(b=>+b.kg>0),fixedNames=FIXED_OUT.map(x=>x[0]);
   const bpTxt=b=>b.jumbo?` (${b.jumbo} จัมโบ้${b.rem?' + เศษ '+fmt(b.rem):''})`:'';
@@ -1650,7 +1657,7 @@ function reqDocHtml(p){
   const ord=S.orders.find(o=>o.id===p.orderId||o.planId===p.id)||null;
   const inO=n=>ord&&(ord.inputs||[]).find(z=>z.name===n)||{};
   V.J5=e(p.docNo||'');V.C6=e(p.no);V.I6=fmG(p.createdAt);
-  (p.formula||[]).slice(0,6).forEach((x,i)=>{const r0=13+i;V['A'+r0]=e(x.code||'');V['C'+r0]=e(x.name);V['G'+r0]=e(inO(x.name).src||'');V['H'+r0]=fmt(p.qty*x.pct/100);V['I'+r0]=fmt(x.pct)+'%';V['J'+r0]=e((p.inTanks&&p.inTanks[x.name])||inO(x.name).tank||'')});
+  (p.formula||[]).slice(0,6).forEach((x,i)=>{const r0=13+i;V['A'+r0]=e(x.code||'');V['C'+r0]=e(x.name);V['G'+r0]=e(inO(x.name).src||x.src||fsrcOf(p,x.name));V['H'+r0]=fmt(p.qty*x.pct/100);V['I'+r0]=fmt(x.pct)+'%';V['J'+r0]=e((p.inTanks&&p.inTanks[x.name])||inO(x.name).tank||'')});
   V.C19=e(p.forName||'');V.H19=fmt(p.qty);V.I19='100%';
   V.A22=e(p.code||'');V.C22=e(p.typeName);V.H22=e(p.outTank||(ord&&(ord.outTanks||[]).join(', '))||'');V.I22=fmt(p.qty);
   const sA=p.planStart||(ord&&ord.startAt)||'',eA=p.planEnd||(ord&&ord.status==='done'&&ord.endAt)||'';
@@ -2061,7 +2068,7 @@ function typeForm(id){
     <div class="field"><label for="t-name">ชื่อชนิดข้าว</label><input id="t-name" value="${esc(t?t.name:'')}" placeholder="เช่น หงษทิพย์"></div>
     <div class="field"><label for="t-code">รหัสสูตร</label><input id="t-code" value="${esc(t?t.code:'')}" placeholder="เช่น W6MIX023-NB"></div>
   </div>
-  <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%)</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
+  <div class="field"><span class="lbl">สูตรผสม ชื่อ / รหัส / % (รวมกัน 100%) · ช่องเส้นประใต้แต่ละแถวคือสถานที่มา</span><div class="lines" id="t-lines">${(t&&t.formula.length?t.formula:[null,null]).map(fRow).join('')}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-ing">+ เพิ่มส่วนผสม</button><button class="btn sm" type="button" data-act="fill">เติมส่วนที่เหลือ</button></div></div>
   <div class="meter"><div class="bar" id="t-bar"></div><div class="txt"><span id="t-msg"></span><b id="t-sum"></b></div></div>
   <div class="field"><span class="lbl">สูตรผลพลอยได้ ชื่อ / รหัส (ใช้เป็นรายการผลพลอยได้ของชนิดข้าวนี้)</span><div class="lines" id="t-bp">${((t&&t.bp&&t.bp.length)?t.bp:BP.map(n=>({name:n,code:''}))).map(bRow).join('')}</div>
@@ -2083,7 +2090,7 @@ function typeForm(id){
     };
   });
 }
-function readFormula(){return[...document.querySelectorAll('#t-lines .line')].map(r=>{const i=r.querySelectorAll('input');return{name:i[0].value.trim(),code:i[1].value.trim(),pct:Math.round((parseFloat(i[2].value)||0)*100)/100,raw:i[2].value}}).filter(r=>r.name||r.code||r.raw!=='').map(({name,code,pct})=>({name,code,pct}))}
+function readFormula(){return[...document.querySelectorAll('#t-lines .line')].map(r=>{const i=r.querySelectorAll('input');return{name:i[0].value.trim(),code:i[1].value.trim(),pct:Math.round((parseFloat(i[2].value)||0)*100)/100,raw:i[2].value,src:(r.querySelector('[data-fs]')||{value:''}).value.trim()}}).filter(r=>r.name||r.code||r.raw!=='').map(({name,code,pct,src})=>({name,code,pct,...(src?{src}:{})}))}
 function meter(){
   const rows=readFormula(),sum=Math.round(rows.reduce((a,r)=>a+r.pct,0)*100)/100,diff=Math.round((100-sum)*100)/100;
   $('#t-bar').innerHTML=rows.filter(r=>r.pct>0).map((x,i)=>`<span style="flex:${x.pct};background:var(--c${i%6})"></span>`).join('');
@@ -2328,7 +2335,7 @@ function renderPlans(){
 function planDetail(id){
   const p=S.plans.find(x=>x.id===id);if(!p)return;
   const s0=planState(p),code=p.code||'',o=p.orderId?S.orders.find(x=>x.id===p.orderId):null,qi=planQueue().findIndex(x=>x.id===id)+1;
-  const ing=(p.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${fmt(p.qty*x.pct/100)} กก.</b></div>`).join('');
+  const ing=(p.formula||[]).map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%${x.src?` <span class="srcn">· ${esc(x.src)}</span>`:''}</span><b>${fmt(p.qty*x.pct/100)} กก.</b></div>`).join('');
   const acts=[];
   if(o)acts.push(`<button class="btn" data-act="open" data-id="${o.id}">ดูรายการผลิต</button>`);
   if(isAdmin())acts.push(`<button class="btn" data-act="edit-plan" data-id="${p.id}">แก้ไข</button>`,`<button class="btn danger" data-act="del-plan" data-id="${p.id}">ลบ</button>`);
@@ -2367,7 +2374,7 @@ function planForm(id){
   <div class="field"><label for="p-pnote">หมายเหตุแผน</label><textarea id="p-pnote" maxlength="300" rows="2" placeholder="เช่น รอวัตถุดิบ / ผลิตต่อจากล็อตก่อน / เร่งด่วน">${esc(p?(p.planNote||''):'')}</textarea><div class="hint" style="margin-top:4px">แสดงเฉพาะในแผนการผลิต (รายการ รายละเอียด ตารางแผนรายสัปดาห์) ไม่ลงในใบสั่งงาน/ใบรายงาน และไม่ไปที่หมายเหตุของรายการผลิต</div></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
-      $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
+      $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%${x.src?` <span class="srcn">· ${esc(x.src)}</span>`:''}</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
     const tsel=(id,cur,list)=>`<select id="${id}" style="width:150px;flex:none"><option value="">ไม่ระบุ</option>${list.map(k=>`<option ${cur===k?'selected':''}>${k}</option>`).join('')}</select>`;
     const tanks=()=>{const t=S.types.find(x=>x.id===$('#p-type').value);if(!t){$('#p-tanks').innerHTML='';return}
       const old={};document.querySelectorAll('#p-tanks select').forEach(x=>old[x.id]=x.value);
