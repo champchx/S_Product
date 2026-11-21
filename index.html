@@ -530,9 +530,19 @@ html.pmf #installbar{left:50%;right:auto;transform:translateX(-50%);width:calc(m
 /* ล็อคหัวหน้า (โลโก้/เวลา/เมนู) ไว้บนสุดไม่ต้องเลื่อนกลับ ทุกหน้า */
 @media screen{
 header{position:sticky;top:0;z-index:14;background:var(--bg);padding-block:10px 8px;margin-block:-10px 0;box-shadow:0 8px 10px -9px rgba(0,0,0,.45)}
-.reordbar{top:calc(var(--hh,0px) + 6px)}
 html.pm header{background:var(--surface);padding:12px;margin-block:0;top:0}
 }
+/* หน้าแผนการผลิต: ล็อคสรุป/ตัวกรอง/แถบสัปดาห์ไว้ใต้หัวหน้า (จอคอม; จอเตี้ยหรือมือถือไม่ล็อคเพื่อไม่ให้รายการเหลือที่น้อย) */
+@media screen{
+.pstick{display:flex;flex-direction:column;gap:10px}
+html:not(.pm) .pstick{position:sticky;top:calc(var(--hh,0px) + 10px);z-index:13;background:var(--bg);padding:6px 0 8px;margin-block:-6px 0;box-shadow:0 8px 10px -9px rgba(0,0,0,.45)}
+html:not(.pm) .pstick .summary{padding:8px 16px;gap:26px}
+html:not(.pm) .pstick .summary b{font-size:18px;line-height:1.2}
+html:not(.pm) .pstick .summary span{font-size:12px}
+html:not(.pm) .pstick #ptype{max-width:240px}
+html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
+}
+@media screen and (max-height:700px){html:not(.pm) .pstick{position:static;box-shadow:none;margin-block:0;padding:0}}
 </style>
 </head>
 <body>
@@ -555,6 +565,7 @@ html.pm header{background:var(--surface);padding:12px;margin-block:0;top:0}
   <div id="print-head" class="only-print"></div>
 
   <section id="plans-view" class="wrap" style="gap:14px" hidden>
+    <div id="pstick" class="pstick">
     <div id="psummary" class="summary"></div>
     <div class="toolbar">
       <div class="chips">
@@ -581,6 +592,7 @@ html.pm header{background:var(--surface);padding:12px;margin-block:0;top:0}
       <button class="btn sm" data-act="reord-start" id="reordbtn">จัดลำดับแผน</button>
       <button class="btn sm primary" data-act="plan-update" id="planupd" hidden>อัปเดตแผนปัจจุบัน</button>
       </div>
+    </div>
     </div>
     <div id="plist" class="list"></div>
   </section>
@@ -741,8 +753,8 @@ function moreForm(){
 }
 let uiMem='';
 const uiPref=()=>{let m='';try{m=localStorage.getItem('bscm-ui')||''}catch(e){}return m||uiMem};
-function setHH(){const h=document.querySelector('#app>header');if(h)document.documentElement.style.setProperty('--hh',(h.offsetHeight-10)+'px')}
-addEventListener('resize',setHH);addEventListener('load',setHH);if(window.ResizeObserver){const _i=setInterval(()=>{const h=document.querySelector('#app>header');if(h){new ResizeObserver(setHH).observe(h);setHH();clearInterval(_i)}},300)}
+function setHH(){const h=document.querySelector('#app>header'),r=document.documentElement.style;if(h)r.setProperty('--hh',(h.offsetHeight-10)+'px');const k=document.getElementById('pstick');r.setProperty('--ph',k&&getComputedStyle(k).position==='sticky'?k.offsetHeight+'px':'0px')}
+addEventListener('resize',setHH);setInterval(setHH,700);addEventListener('load',setHH);if(window.ResizeObserver){const _i=setInterval(()=>{const h=document.querySelector('#app>header');if(h){new ResizeObserver(setHH).observe(h);setHH();clearInterval(_i)}},300)}
 function applyUi(){
   const m=uiPref(),w=innerWidth,p=m==='phone'||(m!=='desktop'&&w<=720),h=document.documentElement.classList,was=h.contains('pm');
   h.toggle('pm',p);h.toggle('pmf',p&&w>720);
