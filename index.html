@@ -1657,7 +1657,7 @@ function reqDocHtml(p){
   const ord=S.orders.find(o=>o.id===p.orderId||o.planId===p.id)||null;
   const inO=n=>ord&&(ord.inputs||[]).find(z=>z.name===n)||{};
   V.J5=e(p.docNo||'');V.C6=e(p.no);V.I6=fmG(p.createdAt);
-  (p.formula||[]).slice(0,6).forEach((x,i)=>{const r0=13+i;V['A'+r0]=e(x.code||'');V['C'+r0]=e(x.name);V['G'+r0]=e(inO(x.name).src||x.src||fsrcOf(p,x.name));V['H'+r0]=fmt(p.qty*x.pct/100);V['I'+r0]=fmt(x.pct)+'%';V['J'+r0]=e((p.inTanks&&p.inTanks[x.name])||inO(x.name).tank||'')});
+  (p.formula||[]).slice(0,6).forEach((x,i)=>{const r0=13+i;V['A'+r0]=e(x.code||'');V['C'+r0]=e(x.name);V['H'+r0]=fmt(p.qty*x.pct/100);V['I'+r0]=fmt(x.pct)+'%';V['J'+r0]=e((p.inTanks&&p.inTanks[x.name])||inO(x.name).tank||'')});
   V.C19=e(p.forName||'');V.H19=fmt(p.qty);V.I19='100%';
   V.A22=e(p.code||'');V.C22=e(p.typeName);V.H22=e(p.outTank||(ord&&(ord.outTanks||[]).join(', '))||'');V.I22=fmt(p.qty);
   const sA=p.planStart||(ord&&ord.startAt)||'',eA=p.planEnd||(ord&&ord.status==='done'&&ord.endAt)||'';
