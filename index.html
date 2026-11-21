@@ -366,7 +366,7 @@ button,.chip,.tab,.orow{-webkit-tap-highlight-color:transparent;touch-action:man
 #installbar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:25;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.18);max-width:520px;margin:0 auto}
 #installbar span{flex:1;font-size:14px}
 @media (display-mode:standalone){body{padding-top:max(12px,env(safe-area-inset-top,0px))}}
-@media print{header>.tabs,#installbar{display:none!important}body{padding-bottom:0}}
+@media print{header>.tabs,#installbar{display:none!important}body{padding-bottom:0}header{position:static!important}}
 </style>
 <style id="phone-css">
 /* ===== นาฬิกาเรียลไทม์ + ไอคอน ===== */
@@ -526,6 +526,12 @@ html.pmf .scrim{justify-content:center}
 html.pmf .sheet{max-width:460px}
 html.pmf #login .sheet{max-width:420px}
 html.pmf #installbar{left:50%;right:auto;transform:translateX(-50%);width:calc(min(100%,460px) - 24px)}
+}
+/* ล็อคหัวหน้า (โลโก้/เวลา/เมนู) ไว้บนสุดไม่ต้องเลื่อนกลับ ทุกหน้า */
+@media screen{
+header{position:sticky;top:0;z-index:14;background:var(--bg);padding-block:10px 8px;margin-block:-10px 0;box-shadow:0 8px 10px -9px rgba(0,0,0,.45)}
+.reordbar{top:calc(var(--hh,0px) + 6px)}
+html.pm header{background:var(--surface);padding:12px;margin-block:0;top:0}
 }
 </style>
 </head>
@@ -735,6 +741,8 @@ function moreForm(){
 }
 let uiMem='';
 const uiPref=()=>{let m='';try{m=localStorage.getItem('bscm-ui')||''}catch(e){}return m||uiMem};
+function setHH(){const h=document.querySelector('#app>header');if(h)document.documentElement.style.setProperty('--hh',(h.offsetHeight-10)+'px')}
+addEventListener('resize',setHH);addEventListener('load',setHH);if(window.ResizeObserver){const _i=setInterval(()=>{const h=document.querySelector('#app>header');if(h){new ResizeObserver(setHH).observe(h);setHH();clearInterval(_i)}},300)}
 function applyUi(){
   const m=uiPref(),w=innerWidth,p=m==='phone'||(m!=='desktop'&&w<=720),h=document.documentElement.classList,was=h.contains('pm');
   h.toggle('pm',p);h.toggle('pmf',p&&w>720);
@@ -2403,7 +2411,7 @@ function planForm(id){
       const f=p&&p.typeId===t.id?p.formula:t.formula,bd=bpDefs({typeId:t.id});
       const g=(id,cur)=>old[id]!=null?old[id]:cur;
       $('#p-tanks').innerHTML=`<div class="lbl" style="margin:6px 0">ตู้/ถัง วัตถุดิบ</div>`+f.map((x,i)=>`<div class="kv"><span>${esc(x.name)}</span>${tsel('pt-i'+i,g('pt-i'+i,p&&p.inTanks&&p.inTanks[x.name]||''),IN_TANKS)}</div>`).join('')
-        +`<div class="lbl" style="margin:10px 0 6px">ตู้/ถัง ผลพลอยได้</div>`+bd.map((d,i)=>`<div class="kv"><span>${esc(d.name)}</span>${tsel('pt-b'+i,g('pt-b'+i,p&&p.bpTanks&&p.bpTanks[d.name]||''),OUT_TANKS)}</div>`).join('')
+        +`<div class="lbl" style="margin:10px 0 6px">ตู้/ถัง ผลพลอยได้</div>`+bd.map((d,i)=>`<div class="kv"><span>${esc(d.name)}</span>${tsel('pt-b'+i,g('pt-b'+i,p&&p.bpTanks&&d.name in p.bpTanks?p.bpTanks[d.name]:'A1A1'),OUT_TANKS)}</div>`).join('')
         +`<div class="lbl" style="margin:10px 0 6px">ตู้/ถัง ข้าวที่ผลิตได้ (ลงตู้/ถัง)</div><div class="kv"><span>${esc(t.name)}</span>${tsel('pt-o',g('pt-o',p&&p.outTank||''),OUT_TANKS)}</div>`};
     $('#p-type').oninput=()=>{prev();tanks()};$('#p-qty').oninput=prev;prev();tanks();
     $('#p-save').onclick=async()=>{
@@ -2411,7 +2419,7 @@ function planForm(id){
       if(!no)return toast('กรอกเลขที่ใบสั่ง');
       if(!(qty>0))return toast('กรอกจำนวนที่สั่งผลิต');
       const formula=p&&p.typeId===t.id?p.formula:t.formula;
-      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planNote:$('#p-pnote').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value]).filter(x=>x[1])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
+      const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planNote:$('#p-pnote').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
       const pid=p?p.id:uid();let ops;
       if(locked)ops=[['plans',pid,doc]];
       else{
