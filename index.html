@@ -567,7 +567,6 @@ html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
     <div id="psummary" class="summary"></div>
     <div class="toolbar">
       <div class="chips">
-        <button class="chip" data-pfilter="all">ทั้งหมด</button>
         <button class="chip" data-pfilter="open">รอเริ่มผลิต</button>
         <button class="chip" data-pfilter="started">เริ่มผลิตแล้ว</button>
       </div>
@@ -600,7 +599,6 @@ html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
     <div id="summary" class="summary"></div>
     <div class="toolbar">
       <div class="chips" id="chips">
-        <button class="chip" data-filter="all">ทั้งหมด</button>
         <button class="chip" data-filter="running">กำลังผลิต</button>
         <button class="chip" data-filter="paused">หยุดชั่วคราว</button>
         <button class="chip" data-filter="off">หยุดออกงาน</button>
@@ -644,10 +642,12 @@ html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
       <p class="hint" style="margin:0">กำหนดสูตรผสมของข้าวแต่ละชนิด ส่วนผสมรวมกันต้องได้ 100%</p>
       <button class="btn primary" data-act="new-type">+ เพิ่มชนิดข้าว</button>
     </div>
+    <div class="row" id="ty-bar" style="gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start"><input id="ty-q" type="search" placeholder="ค้นหาชื่อ / รหัส / วัตถุดิบ / ผลพลอยได้" aria-label="ค้นหาสูตรข้าว" style="flex:1 1 220px"><select id="ty-f" aria-label="กรองสูตรข้าว"><option value="">ทุกสูตร</option><option value="plan">มีแผนรอผลิต</option><option value="used">เคยใช้ผลิต</option><option value="unused">ยังไม่เคยใช้</option><option value="bp">มีผลพลอยได้</option><option value="nobp">ไม่มีผลพลอยได้</option><option value="nocode">ยังไม่มีรหัส</option></select><span class="hint" id="ty-count"></span></div>
     <div id="types" class="recipes"></div>
   </section>
   <section id="sum-view" class="wrap" style="gap:14px" hidden>
     <p class="hint" style="margin:0">งานที่ผลิตเสร็จและรอสรุป ใส่น้ำหนัก input / รหัส / ถัง / ผลพลอยได้ / ข้อมูลใบรายงาน ในหน้านี้ที่เดียว แล้วกด “สรุปรายงาน + ส่ง LINE”</p>
+    <div class="row" id="sumtabs" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" data-act="sum-sub" data-sub="wait" aria-pressed="true"></button><button class="btn sm" data-act="sum-sub" data-sub="done" aria-pressed="false"></button></div>
     <div id="sumlist" class="recipes"></div>
   </section>
   <section id="catalog-view" class="wrap" style="gap:14px" hidden>
@@ -829,7 +829,7 @@ function mx(o){
 const dts=s=>s?new Date(s).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-';
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rice:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of 'rice:'+t)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+h}}
 const codeOf=o=>o.code||((S.types.find(t=>t.id===o.typeId)||{}).code)||'';
-const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'all',pwk:'',reord:null,ptype:'',pq:'',types:[],catalog:[],places:[],catSub:'codes',events:[],evInit:false,orders:[],filter:'all',q:'',tab:'plans'};
+const S={dash:{kind:'day',ref:Date.now(),type:'',status:'all',q:''},role:null,nick:'',uid:'',loginUser:null,users:[],avatars:{},typeFilter:'',adminHash:null,plans:[],pf:'open',pwk:'',reord:null,ptype:'',pq:'',types:[],catalog:[],places:[],catSub:'codes',events:[],evInit:false,orders:[],filter:'running',q:'',tab:'plans'};
 const API_URL='https://script.google.com/macros/s/AKfycbxyyP1SutUjAhqpTx1DXflB5XXoNuDecPbFq7wk_68YneJz_of-Mjt_rpUEBSqdHlq8/exec';
 const SHEET=/^https:\/\/script\.google\.com\//.test(API_URL);
 let pending=0,wv=0;
@@ -1394,7 +1394,13 @@ function renderOrders(){
 function renderTypes(){
   if(!S.types.length){$('#types').innerHTML=`<div class="empty" style="grid-column:1/-1"><div><b>ยังไม่มีชนิดข้าว</b><br>เพิ่มชนิดข้าวพร้อมสูตรผสมเพื่อใช้เปิดใบสั่งผลิต</div>
     <div class="actions"><button class="btn primary" data-act="new-type">+ เพิ่มชนิดข้าว</button>${isAdmin()?'<button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button>':''}</div></div>`;return}
-  const types=[...S.types].sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  const q=nrm(($('#ty-q')||{}).value),f=($('#ty-f')||{}).value||'';
+  const inPlan=t=>S.plans.some(p=>p.typeId===t.id&&planState(p)==='open'),usedN=t=>S.orders.filter(o=>o.typeId===t.id).length;
+  const hay=t=>nrm([t.name,t.code,t.note,...(t.formula||[]).flatMap(x=>[x.name,x.code]),...(t.bp||[]).flatMap(x=>[x.name,x.code])].join(' '));
+  const ok=t=>(!q||hay(t).includes(q))&&(!f||(f==='plan'?inPlan(t):f==='used'?usedN(t)>0:f==='unused'?usedN(t)===0:f==='bp'?!!(t.bp&&t.bp.length):f==='nobp'?!(t.bp&&t.bp.length):f==='nocode'?!t.code:true));
+  const all=[...S.types].sort((a,b)=>a.name.localeCompare(b.name,'th')),types=all.filter(ok);
+  {const c=$('#ty-count');if(c)c.textContent=`ทั้งหมด ${all.length} ชนิด${types.length!==all.length?' · แสดง '+types.length:''}`}
+  if(!types.length){$('#types').innerHTML='<div class="empty" style="grid-column:1/-1"><div><b>ไม่พบสูตรข้าวที่ตรงกับการค้นหา</b><br>ลองเปลี่ยนคำค้นหรือตัวกรอง</div></div>';return}
   $('#types').innerHTML=types.map(t=>{
     const used=S.orders.filter(o=>o.typeId===t.id).length;
     return `<article class="card">
@@ -2028,9 +2034,12 @@ function renderSumPage(){
     return `<div class="sumrow"><div class="sinfo"><b>${esc(o.typeName)}</b> <span class="code">${esc(o.no)}</span>
       <div class="hint">เสร็จ ${esc(dt(o.endAt))} · input ${m.hasIn?fmt(m.inKg)+' กก.':'ยังไม่ใส่'} · ผลพลอยได้ ${n} รายการ${fin&&o.sumAt?' · สรุปเมื่อ '+esc(dt(o.sumAt)):''}</div></div>
       <div class="sbtn">${fin?`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button>`:`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">สรุปรายงาน</button>`}<button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button><button class="btn sm" data-act="xl-both" data-id="${o.id}">Excel ใบสั่ง+รายงาน</button></div></div>`};
-  const h=(t,n)=>`<h3 style="margin:6px 0 0;grid-column:1/-1">${t} <span class="hint">(${n})</span></h3>`;
-  $('#sumlist').innerHTML=h('รอสรุป',P.length)+(P.length?P.map(o=>row(o,false)).join(''):'<div class="empty" style="grid-column:1/-1"><div><b>ไม่มีงานที่ต้องสรุป</b><br>เมื่อผลิตเสร็จ รายการจะมาอยู่ที่นี่</div></div>')
-    +(F.length?h('สรุปแล้ว',F.length)+F.map(o=>row(o,true)).join(''):'');
+  const sub=S.sumSub==='done'?'done':'wait',LIM=S.sumLim||15;
+  document.querySelectorAll('#sumtabs [data-sub]').forEach(x=>{const w=x.dataset.sub==='wait',on=x.dataset.sub===sub;x.textContent=(w?'รอสรุป':'สรุปแล้ว')+' ('+(w?P.length:F.length)+')';x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)});
+  const emp=(t,d)=>`<div class="empty" style="grid-column:1/-1"><div><b>${t}</b><br>${d}</div></div>`;
+  $('#sumlist').innerHTML=sub==='wait'
+    ?(P.length?P.map(o=>row(o,false)).join(''):emp('ไม่มีงานที่ต้องสรุป','เมื่อผลิตเสร็จ รายการจะมาอยู่ที่นี่'))
+    :(F.length?F.slice(0,LIM).map(o=>row(o,true)).join('')+(F.length>LIM?`<button class="btn" style="grid-column:1/-1" data-act="sum-more">แสดงเพิ่ม (เหลืออีก ${F.length-LIM} รายการ)</button>`:''):emp('ยังไม่มีงานที่สรุปแล้ว','งานที่สรุปรายงานแล้วจะมาอยู่ที่นี่'));
 }
 async function resendLine(id,final){
   if(!SHEET){toast('ใช้ได้เฉพาะเวอร์ชันที่เชื่อม Google Sheets');return false}
@@ -2586,7 +2595,7 @@ document.addEventListener('click',e=>{
     case 'plan-update':planUpdateForm();break;
     case 'plan-sync':{const p=S.plans.find(x=>x.id===id);if(p&&planStale(p))syncPlans([p]).then(ok=>{if(ok)planDetail(id)});break}
     case 'plan-sync-all':{const L=stalePlans();if(!L.length)break;if(window.confirm(`อัปเดตสูตรในใบสั่งผลิตที่ยังไม่เริ่มผลิต ${L.length} รายการ ให้ตรงกับสูตรข้าวล่าสุด ?\n${L.slice(0,8).map(p=>p.no).join(', ')}${L.length>8?' …':''}\n(แผนที่เริ่มผลิตแล้วไม่ถูกเปลี่ยน)`))syncPlans(L);break}
-    case 'reord-start':S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='all';renderPlans();break;
+    case 'reord-start':S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='open';renderPlans();break;
     case 'reord-cancel':S.reord=null;renderPlans();break;
     case 'reord-save':reordSave();break;
     case 'pwk-prev':S.pwk=addDaysS(S.pwk||mondayOf(),-7);renderPlans();break;
@@ -2650,6 +2659,8 @@ document.addEventListener('click',e=>{
     case 'close':closeModal();break;
     case 'inbox':inboxForm();break;
     case 'ev-open':{const k=b.dataset.k;closeModal();if(k==='needsum'&&isAdmin())setTab('sum');else if(S.orders.some(x=>x.id===id))orderDetail(id);break}
+    case 'sum-sub':S.sumSub=b.dataset.sub;S.sumLim=15;renderSumPage();break;
+    case 'sum-more':S.sumLim=(S.sumLim||15)+15;renderSumPage();break;
     case 'new-cat':catForm();break;
     case 'cat-sub':S.catSub=b.dataset.sub;renderCatalog();break;
     case 'new-place':placeForm();break;
@@ -2670,6 +2681,7 @@ document.addEventListener('click',e=>{
   }
 });
 $('#q').addEventListener('input',e=>{S.q=e.target.value;renderOrders()});
+$('#ty-q').addEventListener('input',renderTypes);$('#ty-f').addEventListener('change',renderTypes);
 $('#cat-q').addEventListener('input',renderCatalog);$('#cat-k').addEventListener('change',renderCatalog);
 $('#ptype').addEventListener('change',e=>{S.ptype=e.target.value;renderPlans()});
 $('#pq').addEventListener('input',e=>{S.pq=e.target.value;renderPlans()});
