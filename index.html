@@ -1714,13 +1714,12 @@ function reportDocHtml(o){
   inputsOf(o).filter(x=>+x.kg>0).slice(0,6).forEach((x,i)=>{const r0=18+i;V['K'+r0]=e(x.code||fcode(x.name)||codeFor(x.name));V['M'+r0]=e(x.name);V['P'+r0]=e(x.src||'');V['Q'+r0]=fmt(x.kg);V['R'+r0]=pctOf(x.kg,m.inKg);V['S'+r0]=e(x.tank||'')});
   V.M24=e(o.forName||'');if(m.hasIn){V.Q24=fmt(m.inKg);V.R24='100%'}
   const bps=(o.byproducts||[]).filter(b=>+b.kg>0),fixedNames=FIXED_OUT.map(x=>x[0]);
-  const bpTxt=b=>b.jumbo?` (${b.jumbo} จัมโบ้${b.rem?' + เศษ '+fmt(b.rem):''})`:'';
   const outs=[];
   if(m.done&&m.hasIn)outs.push({k:code,n:o.typeName,kg:m.outKg,t:(o.outTanks||[]).join(', ')});
   const rest=bps.filter(b=>!fixedNames.includes(b.name));
   const first=outs.length?6:0;
   while(outs.length<first)outs.push(null);
-  rest.forEach(b=>outs.push({k:b.code||bpCodeOf(o,b.name),n:b.name+bpTxt(b),kg:b.kg,t:b.tank||''}));
+  rest.forEach(b=>outs.push({k:b.code||bpCodeOf(o,b.name),n:b.name,kg:b.kg,t:b.tank||''}));
   outs.slice(0,10).forEach((x,i)=>{if(!x)return;const r0=27+i;V['K'+r0]=e(x.k);V['M'+r0]=e(x.n);V['T'+r0]=fmt(x.kg);V['U'+r0]=m.hasIn?pctOf(x.kg,m.inKg):'';V['V'+r0]=e(x.t)});
   FIXED_OUT.forEach(([n,c],i)=>{const b=bps.find(x=>x.name===n),r0=37+i;if(b&&b.code&&![42,43].includes(r0))V['K'+r0]=e(b.code);if(b){V['T'+r0]=fmt(b.kg);V['U'+r0]=m.hasIn?pctOf(b.kg,m.inKg):'';V['V'+r0]=e(b.tank||'')}});
   if(m.hasIn&&m.done){V.T45=fmt(m.inKg);V.U45='100%'}
