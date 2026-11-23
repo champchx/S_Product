@@ -541,6 +541,10 @@ html:not(.pm) .pstick #ptype{max-width:240px}
 html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
 }
 @media screen and (max-height:700px){html:not(.pm) .pstick{position:static;box-shadow:none;margin-block:0;padding:0}}
+#sum-view{width:100%}
+#sseg .tab{white-space:nowrap}
+html.pm #sseg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%}
+html.pm #sseg .tab{padding:8px 2px;font-size:14px;justify-content:center;min-height:42px}
 </style>
 </head>
 <body>
@@ -648,6 +652,13 @@ html:not(.pm) .reordbar{top:calc(var(--hh,0px) + var(--ph,0px) + 18px)}
   <section id="sum-view" class="wrap" style="gap:14px" hidden>
     <p class="hint" style="margin:0">งานที่ผลิตเสร็จและรอสรุป ใส่น้ำหนัก input / รหัส / ถัง / ผลพลอยได้ / ข้อมูลใบรายงาน ในหน้านี้ที่เดียว แล้วกด “สรุปรายงาน + ส่ง LINE”</p>
     <div class="row" id="sumtabs" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" data-act="sum-sub" data-sub="wait" aria-pressed="true"></button><button class="btn sm" data-act="sum-sub" data-sub="done" aria-pressed="false"></button></div>
+    <div id="sumfilter" style="display:flex;flex-direction:column;gap:8px">
+      <div class="row" id="sumper" style="gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start">
+        <div class="tabs" id="sseg"><button class="tab" data-act="sk" data-k="day">รายวัน</button><button class="tab" data-act="sk" data-k="week">รายสัปดาห์</button><button class="tab" data-act="sk" data-k="month">รายเดือน</button><button class="tab" data-act="sk" data-k="year">รายปี</button></div>
+        <div class="actions" style="align-items:center;margin:0"><button class="btn sm" data-act="sprev" aria-label="ก่อนหน้า">‹</button><b id="s-label" style="min-width:150px;text-align:center"></b><button class="btn sm" data-act="snext" aria-label="ถัดไป">›</button><button class="btn sm" data-act="stoday">ปัจจุบัน</button></div>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start"><input id="sum-q" type="search" placeholder="ค้นหาเลขที่ หรือชนิดข้าว" aria-label="ค้นหางานที่ต้องสรุป" style="flex:1 1 200px"><select id="sum-type" aria-label="กรองตามชนิดข้าว" style="width:auto;max-width:100%"></select><span class="hint" id="sum-count"></span></div>
+    </div>
     <div id="sumlist" class="recipes"></div>
   </section>
   <section id="catalog-view" class="wrap" style="gap:14px" hidden>
@@ -2028,13 +2039,21 @@ function printPlan(id){
 function renderSumPage(){
   if(!isAdmin()||S.tab!=='sum')return;
   const D=S.orders.filter(o=>o.status==='done').sort((x,y)=>(y.endAt||'').localeCompare(x.endAt||''));
-  const P=D.filter(o=>!o.summarized),F=D.filter(o=>o.summarized);
+  const SF=S.sumF||(S.sumF={kind:'month',ref:Date.now(),q:'',type:''}),[pa,pb]=rangeOf(SF.kind,SF.ref);
+  if(SF.type&&!S.types.some(t=>t.id===SF.type))SF.type='';
+  const sq=nrm(SF.q),okq=o=>(!SF.type||o.typeId===SF.type)&&(!sq||nrm(o.no+' '+o.typeName+' '+codeOf(o)).includes(sq));
+  const inP=o=>{const d=new Date(o.endAt||o.startAt||0);return d>=pa&&d<pb};
+  const P=D.filter(o=>!o.summarized&&okq(o)),F=D.filter(o=>o.summarized&&okq(o)&&inP(o));
   const row=(o,fin)=>{const m=mx(o),n=(o.byproducts||[]).filter(b=>+b.kg>0).length;
     return `<div class="sumrow"><div class="sinfo"><b>${esc(o.typeName)}</b> <span class="code">${esc(o.no)}</span>
       <div class="hint">เสร็จ ${esc(dt(o.endAt))} · input ${m.hasIn?fmt(m.inKg)+' กก.':'ยังไม่ใส่'} · ผลพลอยได้ ${n} รายการ${fin&&o.sumAt?' · สรุปเมื่อ '+esc(dt(o.sumAt)):''}</div></div>
       <div class="sbtn">${fin?`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">แก้ไข</button><button class="btn sm" data-act="sum-line" data-id="${o.id}">ส่งสรุป LINE</button>`:`<button class="btn sm primary" data-act="sum-edit" data-id="${o.id}">สรุปรายงาน</button>`}<button class="btn sm" data-act="print-order" data-id="${o.id}">พิมพ์</button><button class="btn sm" data-act="xl-both" data-id="${o.id}">Excel ใบสั่ง+รายงาน</button></div></div>`};
   const sub=S.sumSub==='done'?'done':'wait',LIM=S.sumLim||15;
   document.querySelectorAll('#sumtabs [data-sub]').forEach(x=>{const w=x.dataset.sub==='wait',on=x.dataset.sub===sub;x.textContent=(w?'รอสรุป':'สรุปแล้ว')+' ('+(w?P.length:F.length)+')';x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)});
+  document.querySelectorAll('#sseg .tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.k===SF.kind));
+  $('#sumper').hidden=sub!=='done';$('#s-label').textContent=labelOf(SF.kind,pa,pb);
+  {const sel=$('#sum-type'),opts='<option value="">ทุกชนิดข้าว</option>'+[...S.types].sort((x,y)=>x.name.localeCompare(y.name,'th')).map(t=>`<option value="${t.id}">${esc(t.name)}${t.code?' ('+esc(t.code)+')':''}</option>`).join('');if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}sel.value=SF.type;if($('#sum-q').value!==SF.q)$('#sum-q').value=SF.q}
+  {const L=sub==='done'?F:P,kg=L.reduce((a,o)=>a+(mx(o).inKg||0),0);$('#sum-count').textContent=`${L.length} งาน${kg>0?' · input รวม '+fmt(kg)+' กก.':''}`}
   const emp=(t,d)=>`<div class="empty" style="grid-column:1/-1"><div><b>${t}</b><br>${d}</div></div>`;
   $('#sumlist').innerHTML=sub==='wait'
     ?(P.length?P.map(o=>row(o,false)).join(''):emp('ไม่มีงานที่ต้องสรุป','เมื่อผลิตเสร็จ รายการจะมาอยู่ที่นี่'))
@@ -2658,6 +2677,10 @@ document.addEventListener('click',e=>{
     case 'close':closeModal();break;
     case 'inbox':inboxForm();break;
     case 'ev-open':{const k=b.dataset.k;closeModal();if(k==='needsum'&&isAdmin())setTab('sum');else if(S.orders.some(x=>x.id===id))orderDetail(id);break}
+    case 'sk':S.sumF.kind=b.dataset.k;S.sumLim=15;renderSumPage();break;
+    case 'sprev':S.sumF.ref=shiftRef(S.sumF.kind,S.sumF.ref,-1);S.sumLim=15;renderSumPage();break;
+    case 'snext':S.sumF.ref=shiftRef(S.sumF.kind,S.sumF.ref,1);S.sumLim=15;renderSumPage();break;
+    case 'stoday':S.sumF.ref=Date.now();S.sumLim=15;renderSumPage();break;
     case 'sum-sub':S.sumSub=b.dataset.sub;S.sumLim=15;renderSumPage();break;
     case 'sum-more':S.sumLim=(S.sumLim||15)+15;renderSumPage();break;
     case 'new-cat':catForm();break;
@@ -2680,6 +2703,7 @@ document.addEventListener('click',e=>{
   }
 });
 $('#q').addEventListener('input',e=>{S.q=e.target.value;renderOrders()});
+$('#sum-q').addEventListener('input',e=>{(S.sumF||(S.sumF={kind:'month',ref:Date.now(),q:'',type:''})).q=e.target.value;S.sumLim=15;renderSumPage()});$('#sum-type').addEventListener('change',e=>{S.sumF.type=e.target.value;S.sumLim=15;renderSumPage()});
 $('#ty-q').addEventListener('input',renderTypes);$('#ty-f').addEventListener('change',renderTypes);
 $('#cat-q').addEventListener('input',renderCatalog);$('#cat-k').addEventListener('change',renderCatalog);
 $('#ptype').addEventListener('change',e=>{S.ptype=e.target.value;renderPlans()});
