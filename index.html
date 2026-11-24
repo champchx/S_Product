@@ -1069,7 +1069,7 @@ function renderPlaces(){
 function placeForm(id){
   const p=id?S.places.find(x=>x.id===id):null;
   openModal(`<h2>${p?'แก้ไขสถานที่มา':'เพิ่มสถานที่มา'}</h2>
-  <div class="field"><label for="pl-name">ชื่อสถานที่มา</label><input id="pl-name" maxlength="120" value="${esc(p?p.name:'')}" placeholder="เช่น บจก.ทรัพย์แสงทองไชย"></div>
+  <div class="field"><label for="pl-name">ชื่อสถานที่มา</label><input id="pl-name" maxlength="120" value="${esc(p?p.name:'')}" placeholder="สถานที่มา"></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="pl-save">บันทึก</button></div>`,()=>{
     $('#pl-save').onclick=async()=>{
       const name=$('#pl-name').value.trim();if(!name)return toast('กรอกชื่อสถานที่มา');
