@@ -815,10 +815,11 @@ const isAdmin=()=>S.role==='admin';
 const admNameKey=()=>LS+'-admin-fullname';
 const myFullName=()=>{if(isAdmin()){try{return localStorage.getItem(admNameKey())||''}catch(e){return ''}}const u=S.users.find(x=>x.id===S.uid);return u&&u.name?String(u.name).trim():''};
 const byName=()=>S.role==='admin'?'ธุรการ':(S.role?(S.nick?S.nick+' (พนักงาน)':'พนักงาน'):'');
-const JUMBO_FULL={'รำ':703},JUMBO_DEFAULT=1203,JUMBO_TARE=3; // น้ำหนักเต็ม 1 จัมโบ้ (กก.) แยกตามผลพลอยได้ และน้ำหนักหักต่อใบ เศษนับเป็น 1 ใบ
-const jumboKg=name=>JUMBO_FULL[name]||JUMBO_DEFAULT;
+const JUMBO_FULL_CODE={'W6MBP701-NB':703},JUMBO_FULL={'รำ':703},JUMBO_DEFAULT=1203,JUMBO_TARE=3; /* ล็อคน้ำหนักเต็มตามรหัส: W6MBP701-NB (รำขัดมัน-ข้าวหอมมะลิ) = 703 */ // น้ำหนักเต็ม 1 จัมโบ้ (กก.) แยกตามผลพลอยได้ และน้ำหนักหักต่อใบ เศษนับเป็น 1 ใบ
+const codeKey=c=>String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const jumboKg=(name,code)=>{const k=codeKey(code);for(const c in JUMBO_FULL_CODE)if(codeKey(c)===k&&k)return JUMBO_FULL_CODE[c];return JUMBO_FULL[name]||(/รำ/.test(name||'')?JUMBO_FULL['รำ']:0)||JUMBO_DEFAULT};
 const jumboBags=(n,r)=>n+(r>0?1:0);
-const jumboNet=(n,r,name)=>Math.round(jumboKg(name)*n+r-JUMBO_TARE*jumboBags(n,r));
+const jumboNet=(n,r,name,code)=>Math.round(jumboKg(name,code)*n+r-JUMBO_TARE*jumboBags(n,r));
 const IN_TANKS=['AA02','AA03','AA08','A1A1'];
 const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -1574,7 +1575,7 @@ function bpRowHtml(d,i,cur){
 function syncJumbo(){
   document.querySelectorAll('.bpr').forEach(r=>{
     const n=parseFloat(r.querySelector('[data-jn]').value)||0,m=parseFloat(r.querySelector('[data-jr]').value)||0,kg=r.querySelector('[data-bp]'),h=r.querySelector('[data-jc]');
-    if(n>0||m>0){const nm=kg.dataset.bp,net=jumboNet(n,m,nm);kg.value=net;kg.readOnly=true;h.textContent=`(${jumboKg(nm)} × ${n}) + ${fmt(m)} − (${JUMBO_TARE} × ${jumboBags(n,m)} ใบ) = ${fmt(net)} กก.`}
+    if(n>0||m>0){const nm=kg.dataset.bp,cd=kg.dataset.bc,net=jumboNet(n,m,nm,cd);kg.value=net;kg.readOnly=true;h.textContent=`(${jumboKg(nm,cd)} × ${n}) + ${fmt(m)} − (${JUMBO_TARE} × ${jumboBags(n,m)} ใบ) = ${fmt(net)} กก.`}
     else{kg.readOnly=false;h.textContent=''}
   });
 }
@@ -1591,7 +1592,7 @@ function resultForm(id){
   <div class="hint" id="r-dur"></div>
   <div class="field"><span class="lbl">ผลพลอยได้${mk>=0?' รวมทุกช่วง':''} ใส่เฉพาะรายการที่ได้ (กก. หรือกดปุ่ม จัมโบ้)</span>${mk>=0?'<div class="hint">ใส่ยอดรวมทั้งงาน (ทุกช่วง) ระบบจะแบ่งให้แต่ละช่วงเองตอนสรุปรายงาน</div>':''}
     <div>${bpList.map((d,i)=>bpRowHtml(d,i,cur)).join('')}</div>
-    <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำ ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
+    <div class="hint">สูตรจัมโบ้: (น้ำหนักเต็มต่อจัมโบ้ × จำนวนจัมโบ้) โดยเต็ม 1 จัมโบ้ = ${JUMBO_DEFAULT} กก. (รำทุกชนิด และรหัส W6MBP701-NB เต็ม 1 จัมโบ้ = ${JUMBO_FULL['รำ']} กก.) + เศษ − (${JUMBO_TARE} × จำนวนใบ โดยเศษนับเป็น 1 ใบ) = น้ำหนักสุทธิ นำไปหักจาก input เพื่อหาข้าวที่ผลิตได้</div></div>
   <div class="hint">น้ำหนัก input ถัง ข้อมูลใบรายงาน และสรุปผล ทำที่แท็บ “งานที่ต้องสรุป” หลังผลิตเสร็จ</div>
   <div class="field"><label for="r-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger,#c00)">*</b></label>
     <input id="r-by" maxlength="60" value="${esc(isAdmin()?((o.reportBy&&o.reportBy!=='ธุรการ'?o.reportBy:'')||myFullName()):myFullName())}" ${isAdmin()?'placeholder="กรอกชื่อ-นามสกุลผู้รายงาน"':'readonly'}>
