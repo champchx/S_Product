@@ -2040,7 +2040,7 @@ function printPlan(id){
 function renderSumPage(){
   if(!isAdmin()||S.tab!=='sum')return;
   const D=S.orders.filter(o=>o.status==='done').sort((x,y)=>(y.endAt||'').localeCompare(x.endAt||''));
-  const SF=S.sumF||(S.sumF={kind:'month',ref:Date.now(),q:'',type:''}),[pa,pb]=rangeOf(SF.kind,SF.ref);
+  const SF=S.sumF||(S.sumF={kind:'day',ref:Date.now(),q:'',type:''}),[pa,pb]=rangeOf(SF.kind,SF.ref);
   if(SF.type&&!S.types.some(t=>t.id===SF.type))SF.type='';
   const sq=nrm(SF.q),okq=o=>(!SF.type||o.typeId===SF.type)&&(!sq||nrm(o.no+' '+o.typeName+' '+codeOf(o)).includes(sq));
   const inP=o=>{const d=new Date(o.endAt||o.startAt||0);return d>=pa&&d<pb};
@@ -2596,7 +2596,7 @@ async function seed(){
 }
 
 /* ---------- events ---------- */
-function setTab(t){if((t==='recipes'||t==='users'||t==='sum'||t==='catalog')&&!isAdmin())return;S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
+function setTab(t){if((t==='recipes'||t==='users'||t==='sum'||t==='catalog')&&!isAdmin())return;if(t==='sum'&&S.tab!=='sum'&&S.sumF){S.sumF.kind='day';S.sumF.ref=Date.now()}S.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){location.hash=t}render()}
 document.addEventListener('click',e=>{
   const ch=e.target.closest('.chip');if(ch){if(ch.dataset.pfilter)S.pf=ch.dataset.pfilter;else S.filter=ch.dataset.filter;render();return}
   if(e.target.id==='modal')return; // กดนอกหน้าต่างไม่ปิด ต้องกดปุ่มยกเลิก/ปิดเท่านั้น
@@ -2704,7 +2704,7 @@ document.addEventListener('click',e=>{
   }
 });
 $('#q').addEventListener('input',e=>{S.q=e.target.value;renderOrders()});
-$('#sum-q').addEventListener('input',e=>{(S.sumF||(S.sumF={kind:'month',ref:Date.now(),q:'',type:''})).q=e.target.value;S.sumLim=15;renderSumPage()});$('#sum-type').addEventListener('change',e=>{S.sumF.type=e.target.value;S.sumLim=15;renderSumPage()});
+$('#sum-q').addEventListener('input',e=>{(S.sumF||(S.sumF={kind:'day',ref:Date.now(),q:'',type:''})).q=e.target.value;S.sumLim=15;renderSumPage()});$('#sum-type').addEventListener('change',e=>{S.sumF.type=e.target.value;S.sumLim=15;renderSumPage()});
 $('#ty-q').addEventListener('input',renderTypes);$('#ty-f').addEventListener('change',renderTypes);
 $('#cat-q').addEventListener('input',renderCatalog);$('#cat-k').addEventListener('change',renderCatalog);
 $('#ptype').addEventListener('change',e=>{S.ptype=e.target.value;renderPlans()});
