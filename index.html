@@ -1027,7 +1027,7 @@ function inboxForm(){
   const seen=ntSeen(),L=evMine().slice(0,40),on=ntOn();
   const tm=t=>new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   openModal(`<div class="row"><h2 style="margin:0">การแจ้งเตือน</h2><button class="btn sm" data-act="close">ปิด</button></div>
-  <label class="ck"><input type="checkbox" id="nt-on" ${on?'checked':''}> เปิดการแจ้งเตือนในแอป (แสดงจุดแดงและข้อความเด้ง)</label>
+  <label class="ck"><input type="checkbox" id="nt-on" ${on?'checked':''}> เปิดการแจ้งเตือนในแอป </label>
   <div class="hint">แอปตรวจข้อมูลใหม่ทุก 30 วินาที การเปิด/ปิดมีผลเฉพาะบัญชีและอุปกรณ์เครื่องนี้ · ไม่แจ้งการกระทำของตัวเอง</div>
   <div id="nt-list" class="ntl">${L.length?L.map(x=>`<div class="nti${x.t>seen&&on?' new':''}"${x.oid?` data-act="ev-open" data-id="${x.oid}" data-k="${x.k}" role="button" tabindex="0"`:''}><div>${esc(x.text)}</div><div class="hint">${esc(tm(x.t))}${x.by?' · โดย '+esc(x.by):''}</div></div>`).join(''):'<div class="empty"><div>ยังไม่มีการแจ้งเตือน</div></div>'}</div>`,()=>{
     $('#nt-on').onchange=e=>{lsSet(LS+'-nt-on-'+meKey(),e.target.checked?'1':'0');if(e.target.checked)lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));renderWho();toast(e.target.checked?'เปิดการแจ้งเตือนแล้ว':'ปิดการแจ้งเตือนแล้ว')};
