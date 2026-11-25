@@ -250,6 +250,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:50
 .kv{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
 .kv:last-child{border-bottom:0}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
+.tkadd{display:inline-flex;gap:4px;align-items:center}.tkadd input{width:140px;min-height:0;padding:5px 8px}
 .tag{background:var(--surface2);padding:2px 10px;border-radius:6px;font-size:13px;font-variant-numeric:tabular-nums}
 
 .bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface2)}
@@ -822,6 +823,20 @@ const jumboBags=(n,r)=>n+(r>0?1:0);
 const jumboNet=(n,r,name,code)=>Math.round(jumboKg(name,code)*n+r-JUMBO_TARE*jumboBags(n,r));
 const IN_TANKS=['AA02','AA03','AA08','A1A1'];
 const OUT_TANKS=['AB01','AB02','AB03','AB04','A1A1'];
+/* ตู้/ถังอื่นๆ ที่พิมพ์เอง: เก็บในข้อมูลงาน/แผน แล้วดึงกลับมาเป็นตัวเลือกให้ใช้ซ้ำ */
+function tkExtra(kind){
+  const base=kind==='in'?IN_TANKS:OUT_TANKS,set=new Set(),add=v=>{v=String(v||'').trim();if(v&&!base.includes(v))set.add(v)};
+  const arr=a=>Array.isArray(a)?a.forEach(add):(a&&typeof a==='object'?Object.values(a).forEach(add):add(a));
+  [...(S.orders||[]),...(S.plans||[])].forEach(o=>{
+    if(kind==='in'){arr(o.inTanks);(o.inputs||[]).forEach(r=>add(r.tank))}
+    else{arr(o.outTanks);add(o.outTank);arr(o.bpTanks);(o.byproducts||[]).forEach(b=>add(b.tank))}
+  });
+  return [...set];
+}
+const tkList=kind=>[...(kind==='in'?IN_TANKS:OUT_TANKS),...tkExtra(kind)];
+const tkOpts=(cur,kind,blank)=>{const L=tkList(kind);if(cur&&!L.includes(cur))L.push(cur);return(blank?`<option value="">${blank}</option>`:'')+L.map(k=>`<option ${cur===k?'selected':''}>${esc(k)}</option>`).join('')+'<option value="__tk">อื่นๆ (พิมพ์ชื่อเอง)…</option>'};
+const tkChecks=(attr,kind,cur)=>{cur=cur||[];const L=tkList(kind);cur.forEach(k=>{if(!L.includes(k))L.push(k)});return `<div class="tags" data-tkg="${attr}">${L.map(k=>`<label class="ck"><input type="checkbox" data-${attr}="${esc(k)}" ${cur.includes(k)?'checked':''}>${esc(k)}</label>`).join('')}<span class="tkadd"><input data-tkn="${attr}" maxlength="20" placeholder="อื่นๆ พิมพ์ชื่อถัง" aria-label="ถังอื่นๆ"><button class="btn sm" type="button" data-act="tk-add" data-g="${attr}">+ เพิ่ม</button></span></div>`};
+const readTk=attr=>{const a=[...document.querySelectorAll(`[data-${attr}]:checked`)].map(e=>e.dataset[attr]);document.querySelectorAll(`[data-tkn="${attr}"]`).forEach(i=>{const v=i.value.trim();if(v&&!a.includes(v))a.push(v)});return a};
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const MONL=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const DOW=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
@@ -949,7 +964,7 @@ async function init(){
     const tryLoad=async()=>{lt();try{await pull()}catch(e){notice('เชื่อมต่อ Google Sheets ไม่ได้ กรุณาตรวจสอบลิงก์ API_URL และการตั้งค่าแชร์ของ Web App');$('#load-t').textContent='โหลดข้อมูลไม่สำเร็จ';$('#load-s').textContent='ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';$('#load-retry').hidden=false;lw.querySelector('.spin').hidden=true}};
     $('#load-retry').onclick=tryLoad;
     await tryLoad();
-    setInterval(()=>{if(!document.hidden&&$('#modal').hidden&&!pending)pull().catch(()=>{})},30000);
+    setInterval(()=>{if((!document.hidden||sysOn())&&$('#modal').hidden&&!pending)pull().catch(()=>{})},30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('#modal').hidden)pull().catch(()=>{})});
     return;
   }
@@ -1017,20 +1032,35 @@ function emitEv(x){
   if(!SHEET)lsSet(LS+'-events',JSON.stringify(S.events));
   try{renderWho()}catch(e){}
 }
+const sysCan=()=>typeof Notification!=='undefined';
+const sysOn=()=>sysCan()&&Notification.permission==='granted'&&lsGet(LS+'-nt-sys-'+meKey())==='1';
+async function sysShow(ev){
+  const o={body:new Date(ev.t).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})+(ev.by?' · โดย '+ev.by:''),tag:ev.id,icon:'icon-192.png',badge:'icon-192.png',vibrate:[200,100,200]};
+  try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r&&r.showNotification)return await r.showNotification('BSCM · '+ev.text,o)}catch(e){}
+  try{const n=new Notification('BSCM · '+ev.text,o);n.onclick=()=>{try{window.focus();n.close()}catch(e){}}}catch(e){}
+}
 function notifyNew(fresh){
   if(!S.role||!ntOn())return;
   const mine=fresh.filter(evVisible).filter(x=>x.t>ntSeen());
   if(!mine.length)return;
+  if(document.hidden&&sysOn()){mine.slice(0,3).forEach(sysShow);if(mine.length>3)sysShow({id:'ev-more'+Date.now(),t:Date.now(),text:`มีการแจ้งเตือนใหม่อีก ${mine.length-3} รายการ`});return}
   toast('🔔 '+mine[0].text+(mine.length>1?` (+อีก ${mine.length-1})`:''),6000);
 }
 function inboxForm(){
   const seen=ntSeen(),L=evMine().slice(0,40),on=ntOn();
   const tm=t=>new Date(t).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   openModal(`<div class="row"><h2 style="margin:0">การแจ้งเตือน</h2><button class="btn sm" data-act="close">ปิด</button></div>
-  <label class="ck"><input type="checkbox" id="nt-on" ${on?'checked':''}> เปิดการแจ้งเตือนในแอป </label>
+  <label class="ck"><input type="checkbox" id="nt-on" ${on?'checked':''}> เปิดการแจ้งเตือนในแอป (แสดงจุดแดงและข้อความเด้ง)</label>
+  ${sysCan()?`<label class="ck"><input type="checkbox" id="nt-sys" ${sysOn()?'checked':''}> แจ้งเตือนผ่านระบบของเครื่อง (เด้งแม้สลับไปแอปอื่น/พับหน้าจอแอป ขณะที่ยังเปิดแอปค้างไว้)</label>`:'<div class="hint">เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนของระบบ</div>'}
   <div class="hint">แอปตรวจข้อมูลใหม่ทุก 30 วินาที การเปิด/ปิดมีผลเฉพาะบัญชีและอุปกรณ์เครื่องนี้ · ไม่แจ้งการกระทำของตัวเอง</div>
   <div id="nt-list" class="ntl">${L.length?L.map(x=>`<div class="nti${x.t>seen&&on?' new':''}"${x.oid?` data-act="ev-open" data-id="${x.oid}" data-k="${x.k}" role="button" tabindex="0"`:''}><div>${esc(x.text)}</div><div class="hint">${esc(tm(x.t))}${x.by?' · โดย '+esc(x.by):''}</div></div>`).join(''):'<div class="empty"><div>ยังไม่มีการแจ้งเตือน</div></div>'}</div>`,()=>{
     $('#nt-on').onchange=e=>{lsSet(LS+'-nt-on-'+meKey(),e.target.checked?'1':'0');if(e.target.checked)lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));renderWho();toast(e.target.checked?'เปิดการแจ้งเตือนแล้ว':'ปิดการแจ้งเตือนแล้ว')};
+    const sy=$('#nt-sys');if(sy)sy.onchange=async e=>{
+      if(!e.target.checked){lsSet(LS+'-nt-sys-'+meKey(),'0');return toast('ปิดการแจ้งเตือนผ่านระบบแล้ว')}
+      let perm=Notification.permission;if(perm==='default'){try{perm=await Notification.requestPermission()}catch(x){}}
+      if(perm!=='granted'){e.target.checked=false;lsSet(LS+'-nt-sys-'+meKey(),'0');return toast(perm==='denied'?'การแจ้งเตือนถูกบล็อก ไปเปิดที่การตั้งค่าเว็บไซต์ของเบราว์เซอร์':'ยังไม่ได้อนุญาตการแจ้งเตือน')}
+      lsSet(LS+'-nt-sys-'+meKey(),'1');toast('เปิดการแจ้งเตือนผ่านระบบแล้ว');sysShow({id:'ev-test'+Date.now(),t:Date.now(),text:'ทดสอบการแจ้งเตือน'})
+    };
     if(on)lsSet(LS+'-nt-seen-'+meKey(),String(Date.now()));
     renderWho();
   });
@@ -1069,7 +1099,7 @@ function renderPlaces(){
 function placeForm(id){
   const p=id?S.places.find(x=>x.id===id):null;
   openModal(`<h2>${p?'แก้ไขสถานที่มา':'เพิ่มสถานที่มา'}</h2>
-  <div class="field"><label for="pl-name">ชื่อสถานที่มา</label><input id="pl-name" maxlength="120" value="${esc(p?p.name:'')}" placeholder="สถานที่มา"></div>
+  <div class="field"><label for="pl-name">ชื่อสถานที่มา</label><input id="pl-name" maxlength="120" value="${esc(p?p.name:'')}" placeholder="เช่น บจก.ทรัพย์แสงทองไชย"></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="pl-save">บันทึก</button></div>`,()=>{
     $('#pl-save').onclick=async()=>{
       const name=$('#pl-name').value.trim();if(!name)return toast('กรอกชื่อสถานที่มา');
@@ -1131,8 +1161,16 @@ async function catImport(){
   try{await saveCatalog([...S.catalog,...fresh]);toast(`นำเข้า ${fresh.length} รายการแล้ว`);render()}catch(e){fail('นำเข้าไม่สำเร็จ',e)}
 }
 /* เติมรหัส/ชื่ออัตโนมัติจากฐานข้อมูลเมื่อเลือกชื่อหรือรหัส */
+document.addEventListener('focusin',e=>{const t=e.target;if(t&&t.matches&&t.matches('select'))t.dataset.prev=t.value});
+document.addEventListener('keydown',e=>{const t=e.target;if(e.key==='Enter'&&t&&t.matches&&t.matches('[data-tkn]')){e.preventDefault();const b=t.parentNode.querySelector('[data-act=tk-add]');if(b)b.click()}});
 document.addEventListener('change',e=>{
-  const t=e.target;if(t&&t.matches&&t.matches('select[data-ws]')&&t.value==='__new'){
+  const t=e.target;if(t&&t.matches&&t.matches('select')&&t.value==='__tk'){
+    const n=(window.prompt('พิมพ์ชื่อตู้/ถังอื่นๆ')||'').trim().slice(0,20);
+    if(!n){t.value=t.dataset.prev||'';return}
+    let op=[...t.options].find(o=>o.value===n||o.text===n);
+    if(!op){op=new Option(n,n);t.insertBefore(op,t.querySelector('option[value="__tk"]'))}
+    t.value=n;t.dataset.prev=n;t.dispatchEvent(new Event('input',{bubbles:true}));return}
+  if(t&&t.matches&&t.matches('select[data-ws]')&&t.value==='__new'){
     if(!isAdmin()){t.value='';toast('เพิ่มสถานที่ได้เฉพาะธุรการ');return}
     const n=(window.prompt('ชื่อสถานที่มาใหม่')||'').trim();
     if(!n){t.value='';return}
@@ -1442,8 +1480,8 @@ function orderForm(id,planId){
     <div class="field"><label for="f-due">กำหนดเสร็จ (ถ้ามี)</label><input id="f-due" type="date" value="${esc(o?o.due:(pl?pl.plannedDate:''))}"></div>
   </div>
   <div id="f-prev"></div>
-  <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${o&&inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
-  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${o&&(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ถัง input</span>${tkChecks('intank','in',o?inTanksOf(o):[])}</div>
+  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span>${tkChecks('out','out',o?(o.outTanks||[]):[])}</div>
   <div class="field"><label for="f-doc">เลขที่</label><input id="f-doc" maxlength="60" value="${esc(o?(o.docNo||''):(pl?(pl.docNo||''):nextDocNo()))}" placeholder="เช่น 69-4-....."></div>
   <div class="field"><label for="f-note">หมายเหตุ</label><textarea id="f-note">${esc(o?o.note:(pl?pl.note||'':''))}</textarea></div>
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="f-save">${o?'บันทึก':'เริ่มการผลิต'}</button></div>`,()=>{
@@ -1459,8 +1497,8 @@ function orderForm(id,planId){
       if(!(qty>0))return toast('กรอกจำนวนที่ผลิต');
       const formula=o&&o.typeId===t.id?o.formula:(pl?pl.formula:t.formula);
       const inputs=o&&o.inputs?o.inputs:[];
-      const inTanks=[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank);
-      const outTanks=[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out);
+      const inTanks=readTk('intank');
+      const outTanks=readTk('out');
       const doc={...(o||{}),...(pl?{planId:pl.id}:{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,inputs,inTanks,outTanks,qty,startAt,due:$('#f-due').value,docNo:$('#f-doc').value.trim(),...(pl&&pl.forName?{forName:pl.forName}:(o&&o.forName?{forName:o.forName}:{})),note:$('#f-note').value.trim(),status:o?o.status:'running',pauses:o?(o.pauses||[]):[],createdAt:o?o.createdAt:Date.now()};
       delete doc.id;
       const oid=o?o.id:uid(),ops=[['orders',oid,doc]];
@@ -1471,7 +1509,7 @@ function orderForm(id,planId){
 }
 
 /* ---------- input weights (admin only, free list) ---------- */
-function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn data-nm placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><input list="dl-code" data-wc data-cd placeholder="รหัส" aria-label="รหัสข้าว" value="${esc(r.code||'')}"><select data-wt aria-label="ถัง input"><option value="">ไม่ระบุถัง</option>${IN_TANKS.map(k=>`<option ${r.tank===k?'selected':''}>${k}</option>`).join('')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button>${placeSel(r.src)}</div>`}
+function wRow(r){r=r||{};return `<div class="line wr"><input list="dl-ing" data-wn data-nm placeholder="ชื่อข้าว" aria-label="ชื่อข้าว" value="${esc(r.name||'')}"><input list="dl-code" data-wc data-cd placeholder="รหัส" aria-label="รหัสข้าว" value="${esc(r.code||'')}"><select data-wt aria-label="ถัง input">${tkOpts(r.tank,'in','ไม่ระบุถัง')}</select><input type="number" min="0" step="any" inputmode="decimal" data-wk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${r.kg?r.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button>${placeSel(r.src)}</div>`}
 function weightFields(o,i,src){
   const rows=(src||inputsOf(o)).filter(r=>+r.kg>0),sx=i==null?'':'-'+i;
   return `<div class="field"><span class="lbl">น้ำหนัก input (กก.) · เฉพาะธุรการ · เพิ่ม ลบ แก้ไขได้อิสระ</span><div class="lines" id="w-rows${sx}">${(rows.length?rows:[null]).map(wRow).join('')}</div><div class="actions"><button class="btn sm" type="button" data-act="add-w" data-t="#w-rows${sx}">+ เพิ่มน้ำหนัก input</button></div><div class="hint" id="w-sum${sx}"></div></div>`;
@@ -2067,7 +2105,7 @@ async function resendLine(id,final){
 }
 /* ตู้/ถังผลพลอยได้ตามใบสั่งผลิต (แผน) */
 const bpTankOf=(o,n)=>{const p=o&&S.plans.find(x=>x.id===o.planId||x.orderId===o.id);return(p&&p.bpTanks&&p.bpTanks[n])||''};
-function sRow(b,o){b=b||{};const tk=b.tank||bpTankOf(o,b.name);return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้"><option value="">ตู้/ถังที่เก็บ (ไม่ระบุ)</option>${OUT_TANKS.map(k=>`<option ${tk===k?'selected':''}>${k}</option>`).join('')}</select></div>`}
+function sRow(b,o){b=b||{};const tk=b.tank||bpTankOf(o,b.name);return `<div class="line sr"><input list="dl-sbp" data-sn placeholder="ชนิดข้าวผลพลอยได้" aria-label="ชนิดข้าวผลพลอยได้" value="${esc(b.name||'')}"><input data-sc placeholder="รหัส" aria-label="รหัสผลพลอยได้" value="${esc(b.code||'')}"><input type="number" min="0" step="any" inputmode="decimal" data-sk placeholder="กก." aria-label="น้ำหนัก (กก.)" value="${b.kg?b.kg:''}"><button class="x" type="button" data-act="rm-line" aria-label="ลบแถว">×</button><select data-st aria-label="ตู้/ถังผลพลอยได้">${tkOpts(tk,'out','ตู้/ถังที่เก็บ (ไม่ระบุ)')}</select></div>`}
 let lossO=null;
 function lossRow(p){p=p||{};const c=p.cat||(p.from?pauseCat(p):'');
   let segSel='';
@@ -2085,8 +2123,8 @@ function summaryForm(id){
   openModal(`<div><h2>${o.summarized?'แก้ไขสรุปรายงาน':'สรุปรายงาน'}</h2><div class="hint">${esc(o.no)} · ${esc(o.typeName)} · เสร็จ ${esc(dt(o.endAt))}</div></div>
   <div class="field"><label for="s-by">ผู้รายงาน (ชื่อ-นามสกุล) <b style="color:var(--danger)">*</b></label><input id="s-by" maxlength="60" value="${esc(by0)}" placeholder="ชื่อ-นามสกุลผู้รายงาน"></div>
   ${weightFields(o)}
-  <div class="field"><span class="lbl">ถัง input</span><div class="tags">${IN_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-intank="${k}" ${inTanksOf(o).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
-  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span><div class="tags">${OUT_TANKS.map(k=>`<label class="ck"><input type="checkbox" data-out="${k}" ${(o.outTanks||[]).includes(k)?'checked':''}>${k}</label>`).join('')}</div></div>
+  <div class="field"><span class="lbl">ถัง input</span>${tkChecks('intank','in',inTanksOf(o))}</div>
+  <div class="field"><span class="lbl">ถังเก็บข้าวที่ผลิตได้</span>${tkChecks('out','out',o.outTanks||[])}</div>
   <div class="field"><span class="lbl">ผลพลอยได้ ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span><datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
     <div class="lines" id="s-bp">${(cur.length?cur:(defs.filter(d=>bpTankOf(o,d.name)).map(d=>({name:d.name,code:d.code}))||[null])).concat([]).map(b=>sRow(b,o)).join('')||sRow(null,o)}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
@@ -2131,8 +2169,8 @@ function summaryForm(id){
         if(x.cat==='อื่นๆ'&&!x.reason)return toast('ประเภทอื่นๆ ใส่รายละเอียดด้วย');
       }
       const patch={inputs:w,byproducts:bp,pauses:lr.filter(x=>x.from).map(x=>({from:x.from,to:x.to,cat:x.cat,...(x.reason?{reason:x.reason}:{})})),lossNotes:lr.filter(x=>!x.from).map(x=>({cat:x.cat,...(hasOff(o)?{seg:x.seg}:{}),...(x.reason?{reason:x.reason}:{})})),
-        inTanks:[...document.querySelectorAll('[data-intank]:checked')].map(e=>e.dataset.intank),
-        outTanks:[...document.querySelectorAll('[data-out]:checked')].map(e=>e.dataset.out),
+        inTanks:readTk('intank'),
+        outTanks:readTk('out'),
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
         ...(mode!=='draft'?{summarized:true,sumAt:nowLocal(),sumBy:byName()}:{})};
       if(await upd(o,patch,['outputKg','segs'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
@@ -2320,11 +2358,11 @@ function renderDash(){
   const lossTbl=`<div class="dsec"><h2>เวลาสูญเสียตามเหตุผล</h2><div class="card tw">${rr.length?`<table class="tbl"><thead><tr><th>เหตุผล</th><th>ครั้ง</th><th>เวลา (ชม.)</th><th>สัดส่วน</th></tr></thead><tbody>
     ${rr.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${fmt(Math.round(v.min/60*100)/100)}</td><td>${lossAll?fmt(v.min/lossAll*100)+'%':'-'}</td></tr>`).join('')}</tbody><tfoot><tr><td>รวม</td><td>${pauseN}</td><td>${fmt(lossAll/60)}</td><td></td></tr></tfoot></table>`:'<div class="hint">ไม่มีการหยุดผลิตในช่วงนี้</div>'}</div></div>`;
   // tanks
-  const OT={};OUT_TANKS.forEach(k=>OT[k]={n:0,kg:0});const IT={};IN_TANKS.forEach(k=>IT[k]={n:0,kg:0});
+  const OTL=tkList('out'),ITL=tkList('in');const OT={};OTL.forEach(k=>OT[k]={n:0,kg:0});const IT={};ITL.forEach(k=>IT[k]={n:0,kg:0});
   M.forEach(x=>{const ts=(x.o.outTanks||[]).filter(k=>OT[k]);ts.forEach(k=>{OT[k].n++;if(x.m.outKg!=null)OT[k].kg+=x.m.outKg/ts.length});
     const used=new Set([...inTanksOf(x.o)]);used.forEach(k=>{if(IT[k]){IT[k].n++;IT[k].kg+=inputsOf(x.o).filter(r=>r.tank===k).reduce((a,r)=>a+(+r.kg||0),0)}})});
-  const tankTbl=`<div class="dsec"><h2>ถังเก็บและถัง input</h2><div class="dgrid"><div class="card tw"><table class="tbl"><thead><tr><th>ถังเก็บข้าวที่ผลิตได้</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${OUT_TANKS.map(k=>`<tr><td>${k}</td><td>${OT[k].n||'-'}</td><td>${OT[k].kg?tn(OT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div>
-    <div class="card tw"><table class="tbl"><thead><tr><th>ถัง input</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${IN_TANKS.map(k=>`<tr><td>${k}</td><td>${IT[k].n||'-'}</td><td>${IT[k].kg?tn(IT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div></div>
+  const tankTbl=`<div class="dsec"><h2>ถังเก็บและถัง input</h2><div class="dgrid"><div class="card tw"><table class="tbl"><thead><tr><th>ถังเก็บข้าวที่ผลิตได้</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${OTL.map(k=>`<tr><td>${esc(k)}</td><td>${OT[k].n||'-'}</td><td>${OT[k].kg?tn(OT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card tw"><table class="tbl"><thead><tr><th>ถัง input</th><th>ครั้ง</th><th>ตัน</th></tr></thead><tbody>${ITL.map(k=>`<tr><td>${esc(k)}</td><td>${IT[k].n||'-'}</td><td>${IT[k].kg?tn(IT[k].kg):'-'}</td></tr>`).join('')}</tbody></table></div></div>
     <div class="hint">กรณีใช้ถังเก็บหลายถังในรายการเดียว ระบบแบ่งน้ำหนักเท่ากันทุกถัง</div></div>`;
   // order list
   const list=`<div class="dsec"><h2>รายการผลิตในช่วงนี้</h2><div class="card tw"><table class="tbl"><thead><tr><th>เลขที่ / ชนิดข้าว</th><th>สถานะ</th><th>เริ่ม</th><th>เสร็จ</th><th>เวลาผลิตจริง</th><th>input (ตัน)</th><th>ข้าวที่ได้ (ตัน)</th><th>ตัน/ชม.</th></tr></thead><tbody>
@@ -2512,7 +2550,7 @@ function planForm(id){
   <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
       $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmt(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
-    const tsel=(id,cur,list)=>`<select id="${id}" style="width:150px;flex:none"><option value="">ไม่ระบุ</option>${list.map(k=>`<option ${cur===k?'selected':''}>${k}</option>`).join('')}</select>`;
+    const tsel=(id,cur,list)=>`<select id="${id}" style="width:150px;flex:none">${tkOpts(cur,list===IN_TANKS?'in':'out','ไม่ระบุ')}</select>`;
     const tanks=()=>{const t=S.types.find(x=>x.id===$('#p-type').value);if(!t){$('#p-tanks').innerHTML='';return}
       const old={};document.querySelectorAll('#p-tanks select').forEach(x=>old[x.id]=x.value);
       const f=p&&p.typeId===t.id?p.formula:t.formula,bd=bpDefs({typeId:t.id});
@@ -2636,6 +2674,10 @@ document.addEventListener('click',e=>{
     case 'dnext':S.dash.ref=shiftRef(S.dash.kind,S.dash.ref,1);renderDash();break;
     case 'dtoday':S.dash.ref=Date.now();renderDash();break;
     case 'dclear':S.dash.type='';S.dash.status='all';S.dash.q='';$('#d-q').value='';renderDash();break;
+    case 'tk-add':{const g=b.closest('[data-tkg]'),a=b.dataset.g,i=g.querySelector('[data-tkn]'),v=i.value.trim();if(!v)break;
+      const ex=[...g.querySelectorAll(`[data-${a}]`)].find(x=>x.dataset[a]===v);
+      if(ex)ex.checked=true;else i.closest('.tkadd').insertAdjacentHTML('beforebegin',`<label class="ck"><input type="checkbox" data-${a}="${esc(v)}" checked>${esc(v)}</label>`);
+      i.value='';break}
     case 'add-w':$(b.dataset.t||'#w-rows').insertAdjacentHTML('beforeend',wRow());break;
     case 'login-staff':setRole('staff');break;
     case 'print-dash':printDash();break;
