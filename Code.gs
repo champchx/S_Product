@@ -126,6 +126,7 @@ function doPost(e) {
   }
   if (body && body.events) return handleLine_(body);
   if (body && body.action === 'resend') return resend_(body);
+  if (body && body.action === 'plan-update') return planUpdate_(body);
 
   let lock = null;
   let error = null;
@@ -356,7 +357,7 @@ function queueText_() {
   });
   if (!open.length) return 'คิวการผลิต: ไม่มีแผนที่รอเริ่มผลิต';
   const lines = open.slice(0, 10).map(function (p, i) {
-    return (i + 1) + '. ' + p.no + ' ' + p.typeName + ' ' + num_(p.qty) + ' กก.';
+    return (i + 1) + '. ' + p.no + ' ' + p.typeName + ' ' + num_(p.qty) + ' กก.' + (p.planNote ? '\n   📝 ' + p.planNote : '');
   });
   if (open.length > 10) lines.push('… และอีก ' + (open.length - 10) + ' แผน');
   return 'ลำดับการผลิตปัจจุบัน\n' + lines.join('\n');
@@ -375,8 +376,11 @@ function diffRows_(old, nw, fields) {
   return rows;
 }
 
+function formulaTxt_(f) {
+  return (f || []).map(function (x) { return x.name + ' ' + x.pct + '%'; }).join(' · ');
+}
 function planMessages_(changes, by, out) {
-  let created = [], edited = [], deleted = [], reverted = [], reordered = false;
+  let created = [], edited = [], deleted = [], reverted = [], reordered = false, formulaOnly = [];
   changes.forEach(function (ch) {
     if (ch.coll !== 'plans') return;
     if (ch.action === 'delete') { if (ch.old) deleted.push(ch.old); return; }
@@ -387,15 +391,21 @@ function planMessages_(changes, by, out) {
     if (o.status !== 'started' && p.status !== 'started' && o.seq !== p.seq) reordered = true;
     const rows = diffRows_(o, p, [
       ['typeName', 'ชนิดข้าว', 'text'], ['qty', 'จำนวน', 'num'],
-      ['plannedDate', 'วันที่ผลิต', 'date'], ['docNo', 'เลขที่เอกสาร', 'text'], ['forName', 'เพื่อทำออเดอร์', 'text'], ['note', 'หมายเหตุ', 'text']
+      ['plannedDate', 'วันที่ผลิต', 'date'], ['docNo', 'เลขที่เอกสาร', 'text'], ['forName', 'เพื่อทำออเดอร์', 'text'], ['note', 'หมายเหตุ', 'text'], ['planNote', 'หมายเหตุแผน', 'text']
     ]);
-    if (rows.length) edited.push({ p: p, rows: rows });
+    const fo = formulaTxt_(o.formula), fn = formulaTxt_(p.formula);
+    if (rows.length) {
+      if (fo !== fn) rows.push('สูตรข้าวใหม่: ' + fn);
+      edited.push({ p: p, rows: rows });
+    } else if (fo !== fn) {
+      formulaOnly.push({ p: p, txt: fn });
+    }
   });
 
   let queueUsed = false;
   created.forEach(function (p) {
     if (!NOTIFY.planCreated) return;
-    const rows = identRows_(p).concat(['วันที่ผลิต: ' + fmtDT_(p.plannedDate), p.note ? 'หมายเหตุ: ' + p.note : '']);
+    const rows = identRows_(p).concat(['วันที่ผลิต: ' + fmtDT_(p.plannedDate), p.note ? 'หมายเหตุ: ' + p.note : '', p.planNote ? 'หมายเหตุแผน: ' + p.planNote : '']);
     if (reordered && NOTIFY.planReordered && !queueUsed) { rows.push(queueText_()); queueUsed = true; }
     out.push(msg_('📋 ออกใบสั่งผลิต', rows, by));
   });
@@ -405,6 +415,12 @@ function planMessages_(changes, by, out) {
   reverted.forEach(function (p) {
     if (NOTIFY.planEdited) out.push(msg_('↩️ ใบสั่งผลิตกลับเป็นรอเริ่มผลิต', identRows_(p), by));
   });
+  if (formulaOnly.length && NOTIFY.planEdited) {
+    const fr = [];
+    formulaOnly.slice(0, 10).forEach(function (x) { fr.push(x.p.no + ' ' + x.p.typeName); fr.push('   ' + x.txt); });
+    if (formulaOnly.length > 10) fr.push('… และอีก ' + (formulaOnly.length - 10) + ' แผน');
+    out.push(msg_('🔄 อัปเดตสูตรข้าวในแผน (' + formulaOnly.length + ' แผน)', fr, by));
+  }
   deleted.forEach(function (p) {
     if (NOTIFY.planDeleted) out.push(msg_('🗑️ ลบใบสั่งผลิต', ['เลขที่: ' + p.no, 'ข้าว: ' + p.typeName, 'จำนวน: ' + num_(p.qty) + ' กก.'], by));
   });
@@ -505,8 +521,55 @@ function resend_(body) {
     const o = readColl_('orders').filter(function (x) { return x.id === String(body.id); })[0];
     if (!o) return json_({ ok: false, error: 'ไม่พบรายการผลิต' });
     const by = String(body.by || '');
-    pushLine_(token, to, [msg_(body.final ? '📋 สรุปรายงาน' : '🔄 อัปเดตสรุปรายงาน', identRows_(o).concat(summaryRows_(o)), by)]);
+    const r = pushLine_(token, to, [msg_(body.final ? '📋 สรุปรายงาน' : '🔄 อัปเดตสรุปรายงาน', identRows_(o).concat(summaryRows_(o)), by)]);
+    if (!r.sent) return json_({ ok: false, error: 'LINE ส่งไม่สำเร็จ: ' + r.error });
     return json_({ ok: true });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
+  }
+}
+
+// ธุรการกด "อัปเดตแผนปัจจุบัน": ส่งงานที่กำลังผลิต + ลำดับคิวรอผลิตล่าสุดเข้า LINE ครั้งเดียว (ไม่แก้ข้อมูล)
+function planUpdate_(body) {
+  try {
+    const token = props_().getProperty('LINE_TOKEN');
+    const to = getTo_();
+    if (!token || !to.length) return json_({ ok: false, error: 'ยังไม่ได้ตั้งค่า LINE' });
+    const LB = { running: 'กำลังผลิต', paused: 'หยุดชั่วคราว', off: 'หยุดออกงาน' };
+    const rows = [];
+    const run = readColl_('orders').filter(function (o) { return o.status !== 'done'; })
+      .sort(function (a, b) { return String(a.startAt || '').localeCompare(String(b.startAt || '')); });
+    if (run.length) {
+      rows.push('กำลังผลิต:');
+      run.slice(0, 5).forEach(function (o) {
+        rows.push('▶ ' + o.no + ' ' + o.typeName + ' ' + num_(o.qty) + ' กก. (' + (LB[stat_(o)] || '') + ')');
+      });
+      if (run.length > 5) rows.push('… และอีก ' + (run.length - 5) + ' รายการ');
+    } else {
+      rows.push('กำลังผลิต: ไม่มี');
+    }
+    const open = readColl_('plans').filter(function (p) { return p.status !== 'started'; });
+    open.sort(function (a, b) {
+      const sa = a.seq == null ? 1e9 : a.seq, sb = b.seq == null ? 1e9 : b.seq;
+      if (sa !== sb) return sa - sb;
+      const da = a.plannedDate || '9', db = b.plannedDate || '9';
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    rows.push(' ');
+    if (!open.length) {
+      rows.push('คิวรอผลิต: ไม่มีแผนที่รอเริ่มผลิต');
+    } else {
+      rows.push('คิวรอผลิต (' + open.length + ' แผน):');
+      open.slice(0, 15).forEach(function (p, i) {
+        rows.push((i + 1) + '. ' + p.no + ' ' + p.typeName + ' ' + num_(p.qty) + ' กก.' + (p.plannedDate ? ' · ' + fmtDT_(p.plannedDate) : ''));
+        if (p.planNote) rows.push('   📝 ' + p.planNote);
+      });
+      if (open.length > 15) rows.push('… และอีก ' + (open.length - 15) + ' แผน');
+    }
+    const r = pushLine_(token, to, [msg_('📋 อัปเดตแผนการผลิตปัจจุบัน', rows, String(body.by || ''))]);
+    if (!r.sent) return json_({ ok: false, error: 'LINE ส่งไม่สำเร็จ: ' + r.error });
+    return json_({ ok: true, sent: r.sent, failed: r.failed });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
@@ -524,6 +587,7 @@ function notifyChanges_(changes, by) {
 
 // ส่งหลายข้อความในคำขอเดียว (สูงสุด 5 ข้อความ/คำขอ) เพื่อประหยัดโควตา
 function pushLine_(token, to, texts) {
+  const result = { sent: 0, failed: 0, error: '' };
   for (let i = 0; i < texts.length; i += 5) {
     const messages = texts.slice(i, i + 5).map(function (t) { return { type: 'text', text: t }; });
     to.forEach(function (id) {
@@ -535,12 +599,21 @@ function pushLine_(token, to, texts) {
           payload: JSON.stringify({ to: id, messages: messages }),
           muteHttpExceptions: true
         });
-        if (res.getResponseCode() !== 200) console.error('LINE push ' + res.getResponseCode() + ': ' + res.getContentText());
+        if (res.getResponseCode() !== 200) {
+          console.error('LINE push ' + res.getResponseCode() + ': ' + res.getContentText());
+          result.failed++;
+          result.error = res.getResponseCode() + ' ' + String(res.getContentText()).slice(0, 160);
+        } else {
+          result.sent++;
+        }
       } catch (err) {
         console.error('LINE push error: ' + err);
+        result.failed++;
+        result.error = String(err);
       }
     });
   }
+  return result;
 }
 
 function replyLine_(replyToken, text) {
