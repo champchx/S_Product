@@ -2394,7 +2394,7 @@ function renderDash(){
   const bk=bucketsOf(kind,a,b),tv=S.dash.tv==='pct'?'pct':'kg';
   if(bk.length){
     bk.forEach(x=>{x.i=0;x.o=0;x.b=0;W.forEach(w=>{const d=od(w.o);if(d>=x.f&&d<x.t){x.i+=w.m.inKg;x.o+=w.m.outKg;x.b+=w.m.byKg}})});
-    const seg=`<div class="tabs" id="tvseg" style="align-self:flex-start"><button class="tab" data-act="dtv" data-v="kg" aria-selected="${tv==='kg'}">น้ำหนัก (ตัน)</button><button class="tab" data-act="dtv" data-v="pct" aria-selected="${tv==='pct'}">% ยีลด์ผลผลิต</button></div>`;
+    const seg=`<div class="tabs" id="tvseg" style="align-self:flex-start"><button class="tab" data-act="dtv" data-v="kg" aria-selected="${tv==='kg'}">น้ำหนัก (ตัน)</button><button class="tab" data-act="dtv" data-v="pct" aria-selected="${tv==='pct'}">% ยีวส์ผลผลิต</button></div>`;
     const ttl=`แนวโน้ม${kind==='year'?'รายเดือน':'รายวัน'} ${tv==='pct'?'(% ของ input)':'(ตัน)'}`;
     if(tv==='kg'){
       const mxv=Math.max(...bk.map(x=>Math.max(x.i,x.o)),1);
