@@ -590,9 +590,9 @@ html.pm #sseg .tab{padding:8px 2px;font-size:14px;justify-content:center;min-hei
       <button class="btn sm" data-act="pwk-all">ทุกสัปดาห์</button>
       <span class="grow"></span>
       <button class="btn sm" data-act="print-week" id="pwk-p1">พิมพ์แผนสัปดาห์</button>
-      <button class="btn sm" data-act="print-week-forms" id="pwk-p2">พิมพ์ใบสั่งงานทั้งสัปดาห์</button>
+      <button class="btn sm" data-act="print-week-forms" id="pwk-p2">พิมพ์ชุดใบสั่งงานทั้งสัปดาห์</button>
       <button class="btn sm" data-act="xl-week" id="pwk-x1">Excel แผนสัปดาห์</button>
-      <button class="btn sm" data-act="xl-week-forms" id="pwk-x2">Excel ใบสั่งงานทั้งสัปดาห์</button>
+      <button class="btn sm" data-act="xl-week-forms" id="pwk-x2">Excel ชุดใบสั่งงานทั้งสัปดาห์</button>
       <button class="btn sm" data-act="reord-start" id="reordbtn">จัดลำดับแผน</button>
       <button class="btn sm" data-act="plan-sync-all" id="plansync" hidden>อัปเดตสูตรในแผน</button>
       <button class="btn sm primary" data-act="plan-update" id="planupd" hidden>อัปเดตแผนปัจจุบัน</button>
@@ -2077,7 +2077,8 @@ function exportPlanXlsx(id){
 function exportWeekFormsXlsx(){
   if(!S.pwk){toast('เลือกสัปดาห์ก่อน');return}
   const list=weekPlans(S.pwk);if(!list.length){toast('ไม่มีแผนการผลิตในสัปดาห์นี้');return}
-  xlsxFromHtml(list.map(p=>({name:xlName(p.docNo||p.no),html:reqDocHtml(p)})),'WorkOrders_Week_'+xlFile(S.pwk));
+  const SH=['สั่งงาน','รายงาน','เคลื่อนย้าย','แม่เหล็ก','สิ่งเจือปน'];
+  xlsxFromHtml(list.flatMap(p=>setDocs(p).map((d,i)=>({...d,name:xlName((p.docNo||p.no)+' '+SH[i]).slice(0,31)}))),'JobSets_Week_'+xlFile(S.pwk));
 }
 function exportWeekXlsx(){
   if(!S.pwk){toast('เลือกสัปดาห์ก่อน');return}
@@ -2516,7 +2517,7 @@ function printWeek(){
 function printWeekForms(){
   if(!S.pwk){toast('เลือกสัปดาห์ก่อนพิมพ์');return}
   const list=weekPlans(S.pwk);if(!list.length){toast('ไม่มีแผนการผลิตในสัปดาห์นี้');return}
-  $('#print-doc').innerHTML=list.map(reqDocHtml).join('');runPrint('print-doc','ใบสั่งงานประจำสัปดาห์ '+weekLabel(S.pwk));
+  $('#print-doc').innerHTML=list.map(p=>setDocs(p).map(d=>d.html).join('')).join('');runPrint('print-doc','ชุดใบสั่งงานประจำสัปดาห์ '+weekLabel(S.pwk));
 }
 function planRow(p,qi,qn,orig){
   const s0=planState(p),code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'',open=s0==='open',ro=!!S.reord&&open;
