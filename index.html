@@ -2407,8 +2407,8 @@ function renderDash(){
       const mxp=Math.max(10,Math.ceil(Math.max(...bk.map(x=>Math.max(yo(x)||0,yb(x)||0)),1)/10)*10);
       const lab=bk.length<=12,pv=v=>v==null?'-':fmtP(v)+'%';
       chart=`<div class="dsec"><div class="row" style="align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px"><h2 style="margin:0">${ttl}</h2>${seg}</div>
-    <div class="legend"><span><i class="sw" style="background:var(--c0)"></i>% ยีลด์ข้าวที่ผลิตได้ (÷ input)</span><span><i class="sw" style="background:var(--c1,var(--c2))"></i>% ผลพลอยได้ (÷ input)</span></div>
-    <div class="card"><div class="tw"><div class="chart" style="min-width:${kind==='month'?640:0}px" role="img" aria-label="กราฟเปอร์เซ็นต์ยีลด์ผลผลิต">${bk.map(x=>`<div class="col" title="${esc(x.lb||'')} ยีลด์ข้าวที่ผลิตได้ ${pv(yo(x))} · ผลพลอยได้ ${pv(yb(x))}"><div class="bars" style="padding-top:16px">${[[yo(x),'var(--c0)'],[yb(x),'var(--c1,var(--c2))']].map(([v,c])=>`<i style="height:${v==null?0:Math.max(0,v)/mxp*100}%;background:${c};position:relative">${lab&&v!=null?`<em class="vl">${fmtP(v)}</em>`:''}</i>`).join('')}</div><span class="lb">${x.lb}</span></div>`).join('')}</div></div>
+    <div class="legend"><span><i class="sw" style="background:var(--c0)"></i>% ยีวส์ข้าวที่ผลิตได้ (÷ input)</span><span><i class="sw" style="background:var(--c1,var(--c2))"></i>% ผลพลอยได้ (÷ input)</span></div>
+    <div class="card"><div class="tw"><div class="chart" style="min-width:${kind==='month'?640:0}px" role="img" aria-label="กราฟเปอร์เซ็นต์ยีวส์ผลผลิต">${bk.map(x=>`<div class="col" title="${esc(x.lb||'')} ยีวส์ข้าวที่ผลิตได้ ${pv(yo(x))} · ผลพลอยได้ ${pv(yb(x))}"><div class="bars" style="padding-top:16px">${[[yo(x),'var(--c0)'],[yb(x),'var(--c1,var(--c2))']].map(([v,c])=>`<i style="height:${v==null?0:Math.max(0,v)/mxp*100}%;background:${c};position:relative">${lab&&v!=null?`<em class="vl">${fmtP(v)}</em>`:''}</i>`).join('')}</div><span class="lb">${x.lb}</span></div>`).join('')}</div></div>
     ${inKg?`<div class="hint">เฉลี่ยทั้งช่วง: ข้าวที่ผลิตได้ <b>${fmtP(outKg/inKg*100)}%</b> · ผลพลอยได้ <b>${fmtP(sum(W,x=>x.m.byKg)/inKg*100)}%</b> ของ input · แกนสูงสุด ${mxp}% · คิดเฉพาะรายการที่มีน้ำหนัก input${lab?'':' · เลื่อนเมาส์/แตะแท่งเพื่อดูค่า'}</div>`:'<div class="hint">ยังไม่มีรายการที่ธุรการใส่น้ำหนัก input ในช่วงนี้</div>'}</div></div>`;
     }
   }
@@ -2425,12 +2425,13 @@ function renderDash(){
   const bpk=new Map();let bpOut=0;
   D.forEach(x=>(x.o.byproducts||[]).forEach(b=>{const kg=+b.kg||0,c=bpOf(x.o,b);if(!c){bpOut+=kg;return}
     const r=bpk.get(c.id)||bpk.set(c.id,{c,all:0,w:0}).get(c.id);r.all+=kg;if(x.m.hasIn)r.w+=kg}));
-  const bpRows=[...bpk.values()].filter(r=>r.all>0).sort((p,q)=>q.all-p.all);
+  S.catalog.filter(c=>c.kind==='ผลพลอยได้'&&!bpk.has(c.id)).forEach(c=>bpk.set(c.id,{c,all:0,w:0})); /* แสดงทุกรหัสผลพลอยได้ในรหัสข้าว แม้ไม่มีน้ำหนักในช่วงนี้ */
+  const bpRows=[...bpk.values()].sort((p,q)=>q.all-p.all||String(p.c.code).localeCompare(String(q.c.code),'en'));
   const bpAll=sum(bpRows,r=>r.all),bpW=sum(bpRows,r=>r.w);
   const bpTbl=`<div class="dsec"><h2>ผลพลอยได้</h2><div class="card tw"><table class="tbl"><thead><tr><th>รายการ (ตามรหัสข้าว)</th><th>น้ำหนัก (กก.)</th><th>% ของ input</th></tr></thead><tbody>
-    ${bpRows.length?bpRows.map(r=>`<tr><td>${esc(r.c.name)} <span class="code">${esc(r.c.code)}</span></td><td>${fmt(r.all)}</td><td>${inKg&&r.w?fmtP(r.w/inKg*100)+'%':'-'}</td></tr>`).join(''):'<tr><td colspan="3" class="hint">ไม่มีผลพลอยได้ที่อยู่ในรหัสข้าวในช่วงนี้</td></tr>'}
+    ${bpRows.length?bpRows.map(r=>`<tr><td>${esc(r.c.name)} <span class="code">${esc(r.c.code)}</span></td><td>${r.all?fmt(r.all):'-'}</td><td>${inKg&&r.w?fmtP(r.w/inKg*100)+'%':'-'}</td></tr>`).join(''):'<tr><td colspan="3" class="hint">ยังไม่มีรหัสผลพลอยได้ในรหัสข้าว</td></tr>'}
     </tbody><tfoot><tr><td>รวม</td><td>${fmt(bpAll)}</td><td>${inKg?fmtP(bpW/inKg*100)+'%':'-'}</td></tr></tfoot></table></div>
-    <div class="hint">แสดงเฉพาะผลพลอยได้ที่มีในรหัสข้าว (แท็บรหัสข้าว ประเภท “ผลพลอยได้”) · % ของ input คิดเฉพาะรายการที่มีน้ำหนัก input${bpOut>0?` · ไม่แสดง ${fmt(bpOut)} กก. ที่ไม่อยู่ในรหัสข้าว (ยังนับรวมในช่องผลพลอยได้ด้านบน)`:''}</div></div>`;
+    <div class="hint">แสดงทุกรหัสผลพลอยได้ในรหัสข้าว (แท็บรหัสข้าว ประเภท “ผลพลอยได้”) รหัสที่ไม่มีน้ำหนักในช่วงนี้แสดงเป็น “-” · % ของ input คิดเฉพาะรายการที่มีน้ำหนัก input${bpOut>0?` · ไม่แสดง ${fmt(bpOut)} กก. ที่ไม่อยู่ในรหัสข้าว (ยังนับรวมในช่องผลพลอยได้ด้านบน)`:''}</div></div>`;
   // loss reasons
   const R={};O.forEach(o=>{const end=st(o)==='done'?o.endAt:nowLocal();(o.pauses||[]).forEach(p=>{const k=(p.reason||'ไม่ระบุเหตุผล').trim();const r=R[k]||(R[k]={n:0,min:0});r.n++;r.min+=mins(p.from,p.to||end)})});
   const rr=Object.entries(R).sort((p,q)=>q[1].min-p[1].min);
