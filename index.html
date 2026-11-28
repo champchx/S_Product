@@ -724,7 +724,6 @@ html.pm #sseg .tab{padding:8px 2px;font-size:14px;justify-content:center;min-hei
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:2});
-const fmtIron=n=>Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:6}); /* น้ำหนักเหล็ก ใส่เศษส่วนได้ เช่น 0.00456 */
 const fmtP=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); /* เปอร์เซ็นต์ทุกที่ ทศนิยม 2 ตำแหน่งเสมอ */
 const pcs=v=>v==null?'-':fmtP(v*100)+'%';
 const pctOf=(a,t)=>t>0?fmtP((+a||0)/t*100)+'%':'-';
@@ -832,7 +831,6 @@ function segView(o,i){
     pauses:(o.pauses||[]).filter(p=>+new Date(p.from)>=+new Date(g.from)&&+new Date(p.from)<=+new Date(g.to)),
     lossNotes:(o.lossNotes||[]).filter(n=>(n.seg||0)===i),
     inputs:d.inputs||[],byproducts:d.byproducts||[],rep:d.rep||{},
-    ...(+o.ironKg>0?{ironKg:(()=>{const sh=segShares(o),c0=cumSh(sh,i),c1=i===sh.length-1?1:c0+sh[i],k=+o.ironKg;return Math.round(k*c1*1e6)/1e6-Math.round(k*c0*1e6)/1e6})()}:{}),
     docNo:i&&o.docNo?o.docNo+'/'+i:(o.docNo||''),_seg:i};
 }
 const segCount=o=>hasOff(o)?segsOf(o).length:1;
@@ -1415,7 +1413,7 @@ function orderDetail(id){
   const inRows=inputsOf(o).filter(r=>+r.kg>0).map(r=>`<div class="kv"><span>${r.code?`<span class="code">${esc(r.code)}</span> `:''}${esc(r.name)} ${r.tank?`<span class="code">${esc(r.tank)}</span>`:'<span class="hint">ไม่ระบุถัง</span>'}</span><b>${r.kg?fmt(r.kg)+' กก. · '+pctOf(r.kg,m.inKg):'—'}</b></div>`).join('');
   const calcBlock=`<div><h3 class="lbl" style="margin-bottom:6px">น้ำหนัก input และถัง</h3>${inRows||'<div class="hint">ยังไม่มีน้ำหนัก input</div>'}
     <div class="kv"><span>ถัง input</span><b>${tankTags(inTanksOf(o))}</b></div>
-    <div class="kv"><span>ถังเก็บข้าวที่ผลิตได้</span><b>${(o.outTanks||[]).length?(o.outTanks||[]).map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—'}</b></div>${+o.ironKg>0?`<div class="kv"><span>เหล็ก <span class="hint">(ไม่นำไปคำนวณ)</span></span><b>${fmtIron(o.ironKg)} กก.</b></div>`:''}</div>
+    <div class="kv"><span>ถังเก็บข้าวที่ผลิตได้</span><b>${(o.outTanks||[]).length?(o.outTanks||[]).map(k=>`<span class="code">${esc(k)}</span>`).join(' '):'—'}</b></div></div>
     ${m.hasIn?`<div><h3 class="lbl" style="margin-bottom:6px">ผลคำนวณ</h3>
       <div class="kv"><span>น้ำหนัก input รวม</span><b>${fmt(m.inKg)} กก.</b></div>
       <div class="kv"><span>อัตราการผลิต (input ÷ เวลาผลิตจริง)</span><b>${m.rate!=null?fmt(m.rate)+' ตัน/ชม.':'คำนวณเมื่อผลิตเสร็จ'}</b></div>
@@ -1803,7 +1801,6 @@ function reportDocHtml(o){
   rest.forEach(b=>outs.push({k:b.code||bpCodeOf(o,b.name),n:b.name,kg:b.kg,t:b.tank||''}));
   outs.slice(0,10).forEach((x,i)=>{if(!x)return;const r0=27+i;V['K'+r0]=e(x.k);V['M'+r0]=e(x.n);V['T'+r0]=fmt(x.kg);V['U'+r0]=m.hasIn?pctOf(x.kg,m.inKg):'';V['V'+r0]=e(x.t)});
   FIXED_OUT.forEach(([n,c],i)=>{const b=bps.find(x=>x.name===n),r0=37+i;if(b&&b.code&&![42,43].includes(r0))V['K'+r0]=e(b.code);if(b){V['T'+r0]=fmt(b.kg);V['U'+r0]=m.hasIn?pctOf(b.kg,m.inKg):'';V['V'+r0]=e(b.tank||'')}});
-  {const ii=FIXED_OUT.findIndex(x=>x[0]==='เหล็ก');if(ii>=0&&+o.ironKg>0&&!bps.find(x=>x.name==='เหล็ก'))V['T'+(37+ii)]=fmtIron(Math.round(o.ironKg*1e6)/1e6)} /* น้ำหนักเหล็ก: แสดงอย่างเดียว ไม่นำไปคำนวณ */
   if(m.hasIn&&m.done){V.T45=fmt(m.inKg);V.U45='100%'}
   V.K45=e(o.resultNote||'');V.K46=e(r.quality||'');
   const ps=o.pauses||[];
@@ -2198,7 +2195,6 @@ function summaryForm(id){
   <div class="field"><span class="lbl">ผลพลอยได้ ชนิดข้าว / รหัส / น้ำหนัก (กก.)</span><datalist id="dl-sbp">${defs.map(d=>`<option value="${esc(d.name)}">${esc(d.code)}</option>`).join('')}</datalist>
     <div class="lines" id="s-bp">${(cur.length?cur:(defs.filter(d=>bpTankOf(o,d.name)).map(d=>({name:d.name,code:d.code}))||[null])).concat([]).map(b=>sRow(b,o)).join('')||sRow(null,o)}</div>
     <div class="actions"><button class="btn sm" type="button" data-act="add-sbp">+ เพิ่มผลพลอยได้</button></div><div class="hint" id="s-sum"></div></div>
-  <div class="field"><label for="s-iron">น้ำหนักเหล็ก (กก.) <span class="hint">· แสดงในใบรายงานเท่านั้น ไม่นำไปคำนวณ</span></label><input id="s-iron" type="number" min="0" step="any" inputmode="decimal" placeholder="กก. เช่น 0.00456 (ไม่ใส่ก็ได้)" value="${+o.ironKg>0?o.ironKg:''}"></div>
   ${hasOff(o)?'<div class="notice" id="s-alloc" style="white-space:pre-line"></div>':''}
   <div class="field"><span class="lbl">เวลาสูญเสีย (เลือกประเภท + รายละเอียด จะแสดงในใบรายงาน · ใส่เวลาหรือไม่ก็ได้${hasOff(o)?' · เลือกช่วงที่ของแต่ละรายการ':''})</span>
     <div class="lines" id="s-loss">${[...(o.pauses||[]),...(o.lossNotes||[])].map(p=>lossRow(p)).join('')}</div>
@@ -2228,7 +2224,6 @@ function summaryForm(id){
         if(!w.length)return toast('ใส่น้ำหนัก input อย่างน้อย 1 รายการ');
       }
       const bp=rd().map(x=>{const old=cur.find(b=>b.name===x.name&&+b.kg===x.kg);return{name:x.name,...(x.code?{code:x.code}:{}),...(x.tank?{tank:x.tank}:{}),kg:x.kg,...(old&&old.jumbo?{jumbo:old.jumbo}:{}),...(old&&old.rem?{rem:old.rem}:{})}});
-      const iron=Math.round((parseFloat($('#s-iron').value)||0)*1e6)/1e6;if(iron<0)return toast('น้ำหนักเหล็กต้องไม่ติดลบ');
       const lr=readLoss();
       for(const x of lr){
         if(!x.cat)return toast('เลือกประเภทเวลาสูญเสียให้ครบทุกแถว');
@@ -2244,9 +2239,8 @@ function summaryForm(id){
         inTanks:readTk('intank'),
         outTanks:readTk('out'),
         resultNote:$('#s-note').value.trim(),...(by?{reportBy:by}:{}),
-        ...(iron>0?{ironKg:iron}:{}),
         ...(mode!=='draft'?{summarized:true,sumAt:nowLocal(),sumBy:byName()}:{})};
-      if(await upd(o,patch,['outputKg','segs',...(iron>0?[]:['ironKg'])],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
+      if(await upd(o,patch,['outputKg','segs'],true)){closeModal();toast(mode==='draft'?'บันทึกร่างแล้ว':'สรุปรายงานแล้ว');if(mode==='line')resendLine(o.id,true)}
     };
     $('#s-save').onclick=()=>doSave('draft');$('#s-final').onclick=()=>doSave('final');$('#s-save-line').onclick=()=>doSave('line');
   });
