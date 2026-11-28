@@ -157,6 +157,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .weekbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.weekbar .grow{flex:1;min-width:4px}.weekbar b{min-width:150px;text-align:center}
 .reordbar{position:sticky;top:0;z-index:3;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:14px}
 .reordbar .grow{flex:1;min-width:120px}.prow .chg{font-size:12px;color:var(--warn)}
+.prow.chgd{box-shadow:inset 3px 0 0 var(--c1)}
+.prow.deld{opacity:.6}.prow.deld .om,.prow.deld .ot{text-decoration:line-through}
 .wkdoc{padding:9mm 11mm;color:#000;font-family:Arial,'Noto Sans Thai',system-ui,sans-serif;font-size:12.5px}
 .wkdoc .wkh{width:100%;border-collapse:collapse;border:2px solid #000}.wkdoc .wkh td{border:1px solid #000;padding:4px 8px;font-size:14px;height:26px}.wkdoc .wkh .lg{width:22%;text-align:center}.wkdoc .wkh .rt{width:30%}.wkdoc .lb{font-weight:700;margin-right:8px}.wkdoc .sub{text-align:center;margin-bottom:8px}
 .wkdoc table.wk{width:100%;border-collapse:collapse}.wkdoc table.wk th,.wkdoc table.wk td{border:1px solid #000;padding:4px 6px;vertical-align:top;line-height:1.3}
@@ -354,6 +356,7 @@ div.orow{cursor:pointer}
 .seq{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--surface2);color:var(--muted);font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
 .seq.next{background:var(--accent);color:var(--accent-fg)}
 .pa{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.prow>.pnote~.pa{grid-column:1/-1;grid-row:auto;justify-self:end;flex-wrap:wrap}
 @media (max-width:560px){
   .orow.prow{grid-template-columns:34px 1fr auto}
   .prow>.seq{grid-column:1;grid-row:1}.prow>.om{grid-column:2;grid-row:1}.prow>.pill{grid-column:3;grid-row:1}
@@ -504,6 +507,7 @@ html.pm .prow .pa:has(>.chev){display:none}
 html.pm .prow>.ot{font-size:13.5px;color:var(--muted)}
 html.pm .prow>.pill{align-self:start}
 html.pm .prow .pa .btn{min-width:44px}
+html.pm .prow>.pnote~.pa{grid-column:1/-1;grid-row:auto;justify-self:end;flex-wrap:wrap}
 html.pm .card{border-radius:16px;padding:14px}
 /* หน้าต่างกรอกข้อมูล = แผ่นเลื่อนขึ้นจากด้านล่าง */
 html.pm .scrim{padding:0;align-items:flex-end;background:rgba(10,18,14,.5);overscroll-behavior:contain}
@@ -609,7 +613,7 @@ html.pm #sseg .tab{padding:8px 2px;font-size:14px;justify-content:center;min-hei
       <button class="btn sm" data-act="print-week-forms" id="pwk-p2">พิมพ์ชุดใบสั่งงานทั้งสัปดาห์</button>
       <button class="btn sm" data-act="xl-week" id="pwk-x1">Excel แผนสัปดาห์</button>
       <button class="btn sm" data-act="xl-week-forms" id="pwk-x2">Excel ชุดใบสั่งงานทั้งสัปดาห์</button>
-      <button class="btn sm" data-act="reord-start" id="reordbtn">จัดลำดับแผน</button>
+      <button class="btn sm" data-act="reord-start" id="reordbtn" title="แก้ไข/ลบ/ย้ายลำดับหลายแผน แล้วอัปเดตครั้งเดียว ส่ง LINE ข้อความเดียว">แก้แผน</button>
       <button class="btn sm" data-act="plan-sync-all" id="plansync" hidden>อัปเดตสูตรในแผน</button>
       <button class="btn sm primary" data-act="plan-update" id="planupd" hidden>อัปเดตแผนปัจจุบัน</button>
       </div>
@@ -2467,9 +2471,10 @@ async function syncPlans(list){
 function planQueue(){return S.plans.filter(p=>planState(p)==='open').sort((a,b)=>((a.seq==null?1e9:a.seq)-(b.seq==null?1e9:b.seq))||(a.plannedDate||'9').localeCompare(b.plannedDate||'9')||(a.createdAt||0)-(b.createdAt||0))}
 function seqOps(list){const ops=[];list.forEach((p,i)=>{if(p.seq!==i+1){const d={...p,seq:i+1};delete d.id;ops.push(['plans',p.id,d])}});return ops}
 /* ---------- ปรับลำดับแผน (ร่าง → ยืนยัน → บันทึกครั้งเดียว → LINE ครั้งเดียว) ---------- */
+function pe(){return S.pedit||(S.pedit={edits:{},dels:[]})}
 function draftQueue(){
   const q=planQueue();if(!S.reord)return q;
-  const m=new Map(q.map(p=>[p.id,p])),ids=S.reord.filter(i=>m.has(i));
+  const E=pe().edits,m=new Map(q.map(p=>[p.id,E[p.id]?{...p,...E[p.id],id:p.id}:p])),ids=S.reord.filter(i=>m.has(i));
   q.forEach(p=>{if(!ids.includes(p.id))ids.push(p.id)});S.reord=ids;return ids.map(i=>m.get(i));
 }
 function movePlan(id,dir){
@@ -2478,17 +2483,52 @@ function movePlan(id,dir){
   if(i<0||j<0||j>=q.length||i===j)return;
   q.splice(i,1);q.splice(j,0,id);S.reord=q;renderPlans();
 }
+/* ---------- โหมดแก้แผน: แก้ไข/ลบ/ย้ายลำดับหลายแผนเป็นร่าง → ยืนยัน → บันทึกครั้งเดียว → LINE ข้อความเดียว ---------- */
+const PDF_FIELDS=[['no','เลขที่ใบสั่ง','t'],['typeName','ชนิดข้าว','t'],['qty','จำนวน','n'],['plannedDate','วันที่ผลิต','d'],['docNo','เลขที่เอกสาร','t'],['forName','เพื่อทำออเดอร์','t'],['planNote','หมายเหตุแผน','t'],['planStart','เริ่มต้น (แผน)','dt'],['planEnd','สิ้นสุด (แผน)','dt']];
+const tkSig=p=>{const f=(m,sd)=>Object.fromEntries(Object.entries(m||{}).filter(([k,v])=>v&&!(sd&&v==='A1A1')));return JSON.stringify([f(p.inTanks),f(p.bpTanks,true),p.outTank||''])};
+function planDiff(o,n){
+  const rows=[],f=(v,t)=>v===''||v==null?'-':t==='n'?fmt(v)+' กก.':t==='d'?dd(v):t==='dt'?dt(v):String(v);
+  PDF_FIELDS.forEach(([k,l,t])=>{const a=o[k]==null?'':o[k],b=n[k]==null?'':n[k];if(String(a)!==String(b))rows.push(`${l}: ${f(a,t)} → ${f(b,t)}`)});
+  if(JSON.stringify(o.formula||[])!==JSON.stringify(n.formula||[]))rows.push('สูตรข้าว: เปลี่ยนเป็นสูตรใหม่');
+  if(tkSig(o)!==tkSig(n))rows.push('ตู้/ถัง: แก้ไข');
+  return rows;
+}
+function peState(){ /* สรุปสิ่งที่เปลี่ยนในร่าง */
+  const P=pe(),orig=planQueue(),dels=P.dels.filter(id=>orig.some(p=>p.id===id));
+  const eds=Object.keys(P.edits).filter(id=>!dels.includes(id)).map(id=>{const o=S.plans.find(x=>x.id===id);return o?{o,n:{...o,...P.edits[id],id},rows:planDiff(o,{...o,...P.edits[id]})}:null}).filter(x=>x&&x.rows.length);
+  const live=draftQueue().filter(p=>!dels.includes(p.id)),ol=orig.filter(p=>!dels.includes(p.id));
+  const opos=new Map(ol.map((p,i)=>[p.id,i+1])),mv=live.map((p,i)=>({p,from:opos.get(p.id),to:i+1})).filter(x=>x.from!==x.to);
+  return {eds,dels:dels.map(id=>orig.find(p=>p.id===id)),mv,live,count:eds.length+dels.length+mv.length};
+}
+async function commitPlanOps(ops,evText){
+  try{
+    const gone=ops.filter(o=>o.action==='delete').map(o=>o.id);
+    ops.filter(o=>o.action==='set').forEach(o=>localPut(o.coll,o.id,o.data));
+    if(gone.length)S.plans=S.plans.filter(x=>!gone.includes(x.id));
+    wv++;safeRender();
+    if(!SHEET)lsSave();
+    else{pending++;try{await api({action:'batch',ops,merge:true})}finally{pending--;wv++}}
+    emitEv({k:'plan',to:'all',text:evText});
+    return true;
+  }catch(e){fail('อัปเดตแผนไม่สำเร็จ',e);if(SHEET)pull().catch(()=>{});return false}
+}
 function reordSave(){
-  const orig=planQueue(),neu=draftQueue(),pos=new Map(orig.map((p,i)=>[p.id,i+1]));
-  const ch=neu.map((p,i)=>({p,from:pos.get(p.id),to:i+1})).filter(x=>x.from!==x.to);
-  if(!ch.length){S.reord=null;toast('ลำดับไม่เปลี่ยน');render();return}
-  openModal(`<h2>ยืนยันการปรับลำดับแผน</h2>
-  <div class="hint">มี ${ch.length} แผนที่ลำดับเปลี่ยน เมื่อยืนยันจะบันทึกครั้งเดียวและส่งแจ้งเตือน LINE <b>1 ครั้ง</b> (แสดงลำดับล่าสุดทั้งคิว)</div>
-  <div class="list">${ch.map(x=>`<div class="kv"><span><b>${esc(x.p.no)}</b> ${esc(x.p.typeName)}</span><b>ลำดับที่ ${x.from} → ${x.to}</b></div>`).join('')}</div>
+  const st=peState();
+  if(!st.count){S.reord=null;S.pedit=null;toast('ไม่มีการเปลี่ยนแปลง');render();return}
+  const edited=new Set(st.eds.map(x=>x.o.id));
+  openModal(`<h2>ยืนยันอัปเดตแผน</h2>
+  <div class="hint">บันทึกการเปลี่ยนแปลงทั้งหมดครั้งเดียว และส่งแจ้งเตือน LINE <b>1 ข้อความ</b> สรุปว่ามีการแก้อะไรบ้าง</div>
+  ${st.eds.length?`<h3 style="margin:6px 0 0">แก้ไข ${st.eds.length} แผน</h3><div class="list">${st.eds.map(x=>`<div class="kv" style="display:block"><b>${esc(x.o.no)}</b> ${esc(x.n.typeName)}${x.rows.map(r=>`<div class="hint" style="margin:2px 0 0 10px">• ${esc(r)}</div>`).join('')}</div>`).join('')}</div>`:''}
+  ${st.dels.length?`<h3 style="margin:6px 0 0">ลบ ${st.dels.length} แผน</h3><div class="list">${st.dels.map(p=>`<div class="kv"><span><b>${esc(p.no)}</b> ${esc(p.typeName)}</span><b>${fmt(p.qty)} กก.</b></div>`).join('')}</div>`:''}
+  ${st.mv.length?`<h3 style="margin:6px 0 0">ปรับลำดับ ${st.mv.length} แผน</h3><div class="list">${st.mv.map(x=>`<div class="kv"><span><b>${esc(x.p.no)}</b> ${esc(x.p.typeName)}</span><b>ลำดับที่ ${x.from} → ${x.to}</b></div>`).join('')}</div>`:''}
   <div class="foot"><button class="btn" data-act="close">กลับไปแก้ไข</button><button class="btn primary" id="ro-ok">ยืนยันและส่ง LINE</button></div>`,()=>{
     $('#ro-ok').onclick=async()=>{
       $('#ro-ok').disabled=true;
-      if(await putMany(seqOps(neu))){S.reord=null;closeModal();toast('ปรับลำดับแผนแล้ว');render()}else $('#ro-ok').disabled=false;
+      const ops=[];
+      st.live.forEach((p,i)=>{if(p.seq!==i+1||edited.has(p.id)){const d={...p,seq:i+1};delete d.id;ops.push({action:'set',coll:'plans',id:p.id,data:d})}});
+      st.dels.forEach(p=>ops.push({action:'delete',coll:'plans',id:p.id}));
+      const parts=[];if(st.eds.length)parts.push(`แก้ไข ${st.eds.length} แผน (${st.eds.slice(0,3).map(x=>x.o.no).join(', ')}${st.eds.length>3?' …':''})`);if(st.dels.length)parts.push(`ลบ ${st.dels.length} แผน`);if(st.mv.length)parts.push('ปรับลำดับ');
+      if(await commitPlanOps(ops,'📝 อัปเดตแผนการผลิต · '+parts.join(' · '))){S.reord=null;S.pedit=null;closeModal();toast('อัปเดตแผนแล้ว');render()}else $('#ro-ok').disabled=false;
     };
   });
 }
@@ -2554,13 +2594,14 @@ function printWeekForms(){
 }
 function planRow(p,qi,qn,orig){
   const s0=planState(p),code=p.code||((S.types.find(t=>t.id===p.typeId)||{}).code)||'',open=s0==='open',ro=!!S.reord&&open;
-  return `<div class="orow prow" role="button" tabindex="0" data-act="plan-open" data-id="${p.id}">
+  const P=ro?pe():null,dl=!!(P&&P.dels.includes(p.id)),orow=P&&P.edits[p.id]?S.plans.find(x=>x.id===p.id):null,erows=orow&&!dl?planDiff(orow,p):[];
+  return `<div class="orow prow${dl?' deld':erows.length?' chgd':''}" role="button" tabindex="0" data-act="plan-open" data-id="${p.id}">
     <span class="seq ${qi===1?'next':''}" ${open?`title="ลำดับการผลิต"`:''}>${open?qi:'–'}</span>
     <span class="pill ${s0}">${LABEL[s0]}</span>
     <span class="om"><b>${esc(p.typeName)} ${code?`<span class="code">${esc(code)}</span>`:''}</b><span class="no">${esc(p.no)}</span></span>
     <span class="ot">${fmt(p.qty)} กก. · ผลิต ${p.plannedDate?dd(p.plannedDate):'ไม่ระบุวัน'}${ro&&orig&&orig!==qi?` · <span class="chg">เดิมลำดับ ${orig}</span>`:''}</span>
-    ${p.planNote?`<span class="pnote">📝 ${esc(p.planNote)}</span>`:''}${isAdmin()&&planStale(p)?`<span class="pnote">🔄 สูตรข้าวมีการแก้ไข · ยังไม่อัปเดตในแผน</span>`:''}
-    <span class="pa">${ro?`<button class="btn sm" data-act="plan-top" data-id="${p.id}" aria-label="ย้ายไปลำดับแรก" ${qi===1?'disabled':''}>⤒</button><button class="btn sm" data-act="plan-up" data-id="${p.id}" aria-label="เลื่อนขึ้น" ${qi===1?'disabled':''}>▲</button><button class="btn sm" data-act="plan-down" data-id="${p.id}" aria-label="เลื่อนลง" ${qi===qn?'disabled':''}>▼</button>`:'<span class="chev" aria-hidden="true">›</span>'}</span></div>`;
+    ${dl?`<span class="pnote">🗑 จะถูกลบเมื่อกด “อัปเดตแผน”</span>`:''}${erows.length?`<span class="pnote">✏️ แก้ไขแล้ว (ยังไม่ส่ง): ${esc(erows.join(' · '))}</span>`:''}${p.planNote?`<span class="pnote">📝 ${esc(p.planNote)}</span>`:''}${isAdmin()&&planStale(p)?`<span class="pnote">🔄 สูตรข้าวมีการแก้ไข · ยังไม่อัปเดตในแผน</span>`:''}
+    <span class="pa">${ro?`<button class="btn sm" data-act="pe-edit" data-id="${p.id}" aria-label="แก้ไขแผน" title="แก้ไข" ${dl?'disabled':''}>✎</button>${dl?`<button class="btn sm" data-act="pe-undel" data-id="${p.id}" aria-label="ยกเลิกการลบ" title="ยกเลิกการลบ">↩</button>`:`<button class="btn sm danger" data-act="pe-del" data-id="${p.id}" aria-label="ลบแผน" title="ลบ">🗑</button>`}<button class="btn sm" data-act="plan-top" data-id="${p.id}" aria-label="ย้ายไปลำดับแรก" ${qi===1?'disabled':''}>⤒</button><button class="btn sm" data-act="plan-up" data-id="${p.id}" aria-label="เลื่อนขึ้น" ${qi===1?'disabled':''}>▲</button><button class="btn sm" data-act="plan-down" data-id="${p.id}" aria-label="เลื่อนลง" ${qi===qn?'disabled':''}>▼</button>`:'<span class="chev" aria-hidden="true">›</span>'}</span></div>`;
 }
 function renderPlans(){
   $('#pnewbtn').hidden=!isAdmin();
@@ -2568,7 +2609,7 @@ function renderPlans(){
   if(sel.dataset.h!==opts){sel.innerHTML=opts;sel.dataset.h=opts}
   if(S.ptype&&!S.types.some(t=>t.id===S.ptype))S.ptype='';
   sel.value=S.ptype;
-  if(!isAdmin())S.reord=null;
+  if(!isAdmin()){S.reord=null;S.pedit=null}
   const orig0={};planQueue().forEach((p,i)=>orig0[p.id]=i+1);
   const queue=draftQueue(),qn=queue.length,qidx={};queue.forEach((p,i)=>qidx[p.id]=i+1);
   $('#pwk-l').textContent=weekLabel(S.pwk);$('#reordbtn').hidden=!isAdmin()||!!S.reord;$('#planupd').hidden=!isAdmin()||!!S.reord;{const n=isAdmin()&&!S.reord?stalePlans().length:0;$('#plansync').hidden=!n;$('#plansync').textContent=`อัปเดตสูตรในแผน (${n})`}
@@ -2582,7 +2623,7 @@ function renderPlans(){
     $('#plist').innerHTML=`<div class="empty"><div><b>ยังไม่มีแผนการผลิต</b><br>${isAdmin()?'ออกใบสั่งผลิตเพื่อให้พนักงานเริ่มการผลิตตามแผน':'รอธุรการออกใบสั่งผลิต'}</div>
     ${isAdmin()?'<div class="actions"><button class="btn primary" data-act="new-plan">+ ออกใบสั่งผลิต</button><button class="btn" data-act="seed">โหลดข้อมูลตัวอย่าง</button></div>':''}</div>`;return;
   }
-  const bar=S.reord?`<div class="reordbar"><b>กำลังจัดลำดับแผน</b><span class="grow">กด ⤒ ▲ ▼ เพื่อย้าย ยังไม่บันทึกจนกว่าจะกด “บันทึกลำดับ”</span><button class="btn sm" data-act="reord-cancel">ยกเลิก</button><button class="btn sm primary" data-act="reord-save">บันทึกลำดับ</button></div>`:'';
+  const bar=S.reord?`<div class="reordbar"><b>โหมดแก้แผน</b><span class="grow">กด ✎ แก้ไข · 🗑 ลบ · ⤒ ▲ ▼ ย้ายลำดับ — ยังไม่บันทึกและยังไม่ส่ง LINE จนกว่าจะกด “อัปเดตแผน”</span><button class="btn sm" data-act="reord-cancel">ยกเลิก</button><button class="btn sm primary" data-act="reord-save">อัปเดตแผน${(n=>n?` (${n})`:'')(peState().count)}</button></div>`:'';
   $('#plist').innerHTML=bar+(rows.length?rows.map(p=>planRow(p,qidx[p.id]||0,qn,orig0[p.id])).join(''):'<div class="empty">ไม่พบรายการที่ตรงกับตัวกรอง</div>');
 }
 function planDetail(id){
@@ -2605,10 +2646,10 @@ function planDetail(id){
   <div class="foot" style="justify-content:flex-start">${acts.join('')}${s0==='open'?'<button class="btn" data-act="goto-orders">ไปหน้ารายการผลิต</button>':''}<button class="btn" data-act="print-plan" data-id="${p.id}">พิมพ์ใบสั่งงาน</button><button class="btn" data-act="xl-plan" data-id="${p.id}">ดาวน์โหลด Excel</button><button class="btn" data-act="print-set" data-id="${p.id}">พิมพ์ชุดใบสั่งงาน</button><button class="btn" data-act="xl-set" data-id="${p.id}">Excel ชุดใบสั่งงาน</button></div>`);
 }
 function planForm(id){
-  const p=id?S.plans.find(x=>x.id===id):null,locked=!!(p&&p.status==='started');
+  const stage=!!(id&&S.reord),p0=id?S.plans.find(x=>x.id===id):null,p=p0&&stage&&pe().edits[id]?{...p0,...pe().edits[id]}:p0,locked=!!(p&&p.status==='started');
   if(!S.types.length){toast('เพิ่มชนิดข้าวและสูตรก่อนออกใบสั่งผลิต');setTab('recipes');return}
-  const queue=planQueue(),curPos=p&&!locked?queue.findIndex(x=>x.id===p.id)+1:0,maxPos=queue.length+(p&&!locked?0:1);
-  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่ เลขที่ และหมายเหตุแผน</div>':''}
+  const queue=stage?draftQueue().filter(x=>!pe().dels.includes(x.id)):planQueue(),curPos=p&&!locked?queue.findIndex(x=>x.id===p.id)+1:0,maxPos=queue.length+(p&&!locked?0:1);
+  openModal(`<h2>${p?'แก้ไขใบสั่งผลิต':'ออกใบสั่งผลิต'}</h2>${stage?'<div class="hint">โหมดแก้แผน: กด “เก็บการแก้ไข” เพื่อเก็บไว้ในร่างก่อน ยังไม่บันทึกและยังไม่ส่ง LINE จนกว่าจะกด “อัปเดตแผน”</div>':''}${locked?'<div class="hint">เริ่มผลิตแล้ว แก้ได้เฉพาะวันที่ เลขที่ และหมายเหตุแผน</div>':''}
   <div class="grid2">
     <div class="field"><label for="p-no">เลขที่ใบสั่ง</label><input id="p-no" value="${esc(p?p.no:orderNo())}" ${locked?'readonly':''}></div>
     <div class="field"><label for="p-date">วันที่ผลิต (แผน)</label><input id="p-date" type="date" value="${esc(p?p.plannedDate:'')}"></div>
@@ -2627,7 +2668,7 @@ function planForm(id){
   <div class="field"><label for="p-doc">เลขที่</label><input id="p-doc" maxlength="60" value="${esc(p?(p.docNo||''):nextDocNo())}" placeholder="เช่น 69-4-......"></div>
   ${p&&!locked&&planStale(p)?`<div class="field"><label class="ck"><input type="checkbox" id="p-sync" checked>อัปเดตสูตรเป็นสูตรข้าวล่าสุด (สูตรข้าวนี้ถูกแก้ไขหลังออกใบสั่ง)</label></div>`:''}
   <div class="field"><label for="p-pnote">หมายเหตุแผน</label><textarea id="p-pnote" maxlength="300" rows="2" placeholder="เช่น รอวัตถุดิบ / ผลิตต่อจากล็อตก่อน / เร่งด่วน">${esc(p?(p.planNote||''):'')}</textarea><div class="hint" style="margin-top:4px">แสดงเฉพาะในแผนการผลิต (รายการ รายละเอียด ตารางแผนรายสัปดาห์) ไม่ลงในใบสั่งงาน/ใบรายงาน และไม่ไปที่หมายเหตุของรายการผลิต</div></div>${p&&p.note?`<div class="hint">หมายเหตุเดิม: ${esc(p.note)}</div>`:''}
-  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
+  <div class="foot"><button class="btn" data-act="close">ยกเลิก</button><button class="btn primary" id="p-save">${stage?'เก็บการแก้ไข':p?'บันทึก':'ออกใบสั่งผลิต'}</button></div>`,()=>{
     const prev=()=>{const t=S.types.find(x=>x.id===$('#p-type').value),q=parseFloat($('#p-qty').value)||0;
       $('#p-prev').innerHTML=t?`<div class="lbl" style="margin-bottom:6px">สูตรผสม${q?' ที่ต้องใช้':''}</div>${bar(t.formula)}<div style="margin-top:6px">`+t.formula.map((x,i)=>`<div class="kv"><span><i class="sw" style="background:var(--c${i%6})"></i>${esc(x.name)} ${fmtP(x.pct)}%</span><b>${q?fmt(q*x.pct/100)+' กก.':''}</b></div>`).join('')+'</div>':''};
     const tsel=(id,cur,list)=>`<select id="${id}" style="width:150px;flex:none">${tkOpts(cur,list===IN_TANKS?'in':'out','ไม่ระบุ')}</select>`;
@@ -2646,6 +2687,13 @@ function planForm(id){
       const formula=p&&p.typeId===t.id&&!($('#p-sync')&&$('#p-sync').checked)?p.formula:t.formula;
       const doc={...(p||{}),no,typeId:t.id,typeName:t.name,code:t.code||'',formula,qty,plannedDate:$('#p-date').value,docNo:$('#p-doc').value.trim(),forName:$('#p-for').value.trim(),planNote:$('#p-pnote').value.trim(),planStart:$('#p-start').value,planEnd:$('#p-end').value,inTanks:Object.fromEntries(formula.map((x,i)=>[x.name,$('#pt-i'+i).value]).filter(x=>x[1])),bpTanks:Object.fromEntries(bpDefs({typeId:t.id}).map((d,i)=>[d.name,$('#pt-b'+i).value])),outTank:$('#pt-o').value,status:p?p.status:'open',createdAt:p?p.createdAt:Date.now()};delete doc.id;
       const pid=p?p.id:uid();let ops;
+      if(stage){ /* เก็บเป็นร่าง ยังไม่บันทึก/ไม่ส่ง LINE */
+        const P=pe(),base=S.plans.find(x=>x.id===pid);
+        if(base&&planDiff(base,doc).length)P.edits[pid]=doc;else delete P.edits[pid];
+        let pos=parseInt($('#p-seq')&&$('#p-seq').value);const live=draftQueue().map(x=>x.id).filter(i=>!P.dels.includes(i)),cur=live.indexOf(pid);
+        if(pos>=1&&cur>=0){pos=Math.min(pos,live.length);if(pos-1!==cur){const rest=S.reord.filter(i=>i!==pid),lv=live.filter(i=>i!==pid),anchor=lv[pos-1];const at=anchor?rest.indexOf(anchor):rest.length;rest.splice(at<0?rest.length:at,0,pid);S.reord=rest}}
+        closeModal();renderPlans();toast('เก็บการแก้ไขไว้ในร่างแล้ว · กด “อัปเดตแผน” เมื่อพร้อมส่ง');return;
+      }
       if(locked)ops=[['plans',pid,doc]];
       else{
         const q=planQueue().filter(x=>x.id!==pid);
@@ -2732,8 +2780,11 @@ document.addEventListener('click',e=>{
     case 'plan-update':planUpdateForm();break;
     case 'plan-sync':{const p=S.plans.find(x=>x.id===id);if(p&&planStale(p))syncPlans([p]).then(ok=>{if(ok)planDetail(id)});break}
     case 'plan-sync-all':{const L=stalePlans();if(!L.length)break;if(window.confirm(`อัปเดตสูตรในใบสั่งผลิตที่ยังไม่เริ่มผลิต ${L.length} รายการ ให้ตรงกับสูตรข้าวล่าสุด ?\n${L.slice(0,8).map(p=>p.no).join(', ')}${L.length>8?' …':''}\n(แผนที่เริ่มผลิตแล้วไม่ถูกเปลี่ยน)`))syncPlans(L);break}
-    case 'reord-start':S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='open';renderPlans();break;
-    case 'reord-cancel':S.reord=null;renderPlans();break;
+    case 'reord-start':S.pedit={edits:{},dels:[]};S.reord=planQueue().map(p=>p.id);if(S.pf==='started')S.pf='open';renderPlans();break;
+    case 'reord-cancel':if(peState().count&&!window.confirm('ยกเลิกโหมดแก้แผน? การแก้ไขที่ยังไม่อัปเดตจะหายไป'))break;S.reord=null;S.pedit=null;renderPlans();break;
+    case 'pe-edit':planForm(id);break;
+    case 'pe-del':{const P=pe();if(!P.dels.includes(id))P.dels.push(id);renderPlans();break}
+    case 'pe-undel':{const P=pe();P.dels=P.dels.filter(x=>x!==id);renderPlans();break}
     case 'reord-save':reordSave();break;
     case 'pwk-prev':S.pwk=addDaysS(S.pwk||mondayOf(),-7);renderPlans();break;
     case 'pwk-next':S.pwk=addDaysS(S.pwk||mondayOf(),7);renderPlans();break;

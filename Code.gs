@@ -149,7 +149,7 @@ function doPost(e) {
   // แจ้งเตือน LINE หลังบันทึกเสร็จ ถ้าแจ้งไม่ได้ก็ไม่กระทบการบันทึก
   // body.quiet = บันทึกจากหน้า "งานที่ต้องสรุป" ยังไม่แจ้ง LINE จนกว่าจะกดสรุปรายงาน + ส่ง LINE
   try {
-    if (!body.quiet) notifyChanges_(changes, String(body.by || ''));
+    if (!body.quiet) notifyChanges_(changes, String(body.by || ''), !!body.merge);
   } catch (err) {
     console.error('notify failed: ' + err);
   }
@@ -201,7 +201,12 @@ function num_(n, d) {
   return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (parts[1] ? '.' + parts[1] : '');
 }
 
-function pct_(a, t) { return t > 0 ? num_((+a || 0) / t * 100, 1) + '%' : '-'; }
+function pf_(n) { // เปอร์เซ็นต์ ทศนิยม 2 ตำแหน่งเสมอ
+  const v = (Math.round((+n || 0) * 100) / 100).toFixed(2).split('.');
+  return v[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + v[1];
+}
+
+function pct_(a, t) { return t > 0 ? pf_((+a || 0) / t * 100) + '%' : '-'; }
 
 function sumKg_(arr) {
   return (arr || []).reduce(function (a, x) { return a + (+x.kg || 0); }, 0);
@@ -322,18 +327,18 @@ function summaryRows_(o) {
     rows.push('เวลาผลิตจริง: ' + hm_(net) + (inKg > 0 && net > 0 ? ' · ' + num_(inKg / 1000 / (net / 60)) + ' ตัน/ชม.' : ''));
   }
   if (inKg > 0) {
-    rows.push('Input รวม: ' + num_(inKg, 0) + ' กก. (100%)');
+    rows.push('Input รวม: ' + num_(inKg, 0) + ' กก. (100.00%)');
     (o.inputs || []).forEach(function (x) {
       if (+x.kg > 0) rows.push('  • ' + (x.name || 'ไม่ระบุชื่อ') + ' ' + num_(x.kg, 0) + ' กก. (' + pct_(x.kg, inKg) + ')');
     });
   }
   if (done && inKg > 0) {
-    const bp = Math.round(byKg / inKg * 1000) / 10;
-    rows.push('ผลพลอยได้รวม: ' + num_(byKg, 0) + ' กก. (' + num_(bp, 1) + '%)');
+    const bp = Math.round(byKg / inKg * 10000) / 100;
+    rows.push('ผลพลอยได้รวม: ' + num_(byKg, 0) + ' กก. (' + pf_(bp) + '%)');
     (o.byproducts || []).forEach(function (b) {
       if (+b.kg > 0) rows.push('  • ' + b.name + ' ' + num_(b.kg, 0) + ' กก. (' + pct_(b.kg, inKg) + ')');
     });
-    rows.push('ข้าวที่ผลิตได้: ' + num_(outKg, 0) + ' กก. (' + num_(Math.round((100 - bp) * 10) / 10, 1) + '%)');
+    rows.push('ข้าวที่ผลิตได้: ' + num_(outKg, 0) + ' กก. (' + pf_(100 - bp) + '%)');
     if (multi) {
       rows.push('แยกตามช่วง:');
       segs_(o).forEach(function (g, i) {
@@ -377,9 +382,41 @@ function diffRows_(old, nw, fields) {
 }
 
 function formulaTxt_(f) {
-  return (f || []).map(function (x) { return x.name + ' ' + x.pct + '%'; }).join(' · ');
+  return (f || []).map(function (x) { return x.name + ' ' + pf_(x.pct) + '%'; }).join(' · ');
 }
-function planMessages_(changes, by, out) {
+function tkSig_(p) { // ตู้/ถังที่ผู้ใช้ตั้งจริง (ไม่นับค่าเริ่มต้น A1A1 / ค่าว่าง)
+  const f = function (m, skipDef) {
+    const r = {};
+    Object.keys(m || {}).forEach(function (k) { const v = m[k]; if (v && !(skipDef && v === 'A1A1')) r[k] = v; });
+    return r;
+  };
+  return JSON.stringify([f(p.inTanks), f(p.bpTanks, true), p.outTank || '']);
+}
+
+// merge=true: การอัปเดตแผนหลายใบพร้อมกัน (โหมดแก้แผน) รวมเป็นข้อความ LINE เดียว
+function mergedPlanMsg_(edited, formulaOnly, deleted, reordered, by) {
+  const head = [];
+  if (edited.length + formulaOnly.length) head.push('แก้ไข ' + (edited.length + formulaOnly.length) + ' แผน');
+  if (deleted.length) head.push('ลบ ' + deleted.length + ' แผน');
+  if (reordered) head.push('ปรับลำดับ');
+  const blocks = [];
+  edited.forEach(function (x) {
+    blocks.push(['✏️ ' + x.p.no + ' ' + x.p.typeName + (x.p.forName ? ' · ' + x.p.forName : '')].concat(x.rows.map(function (r) { return '   ' + r; })));
+  });
+  formulaOnly.forEach(function (x) { blocks.push(['🔄 ' + x.p.no + ' ' + x.p.typeName, '   สูตรข้าวใหม่: ' + x.txt]); });
+  deleted.forEach(function (p) { blocks.push(['🗑️ ลบ ' + p.no + ' ' + p.typeName + ' ' + num_(p.qty) + ' กก.']); });
+  const rows = [head.join(' · ')];
+  let used = rows[0].length;
+  for (let i = 0; i < blocks.length; i++) {
+    const t = blocks[i].join('\n');
+    if (used + t.length > 3300) { rows.push('… และอีก ' + (blocks.length - i) + ' รายการ (ดูรายละเอียดในแอป)'); break; }
+    rows.push(t); used += t.length + 1;
+  }
+  if (reordered) rows.push(queueText_());
+  return msg_('📝 อัปเดตแผนการผลิต', rows, by);
+}
+
+function planMessages_(changes, by, out, merge) {
   let created = [], edited = [], deleted = [], reverted = [], reordered = false, formulaOnly = [];
   changes.forEach(function (ch) {
     if (ch.coll !== 'plans') return;
@@ -390,9 +427,10 @@ function planMessages_(changes, by, out) {
     if (p.status === 'started') return; // เริ่มผลิตจากแผน: แจ้งจากรายการผลิตแล้ว
     if (o.status !== 'started' && p.status !== 'started' && o.seq !== p.seq) reordered = true;
     const rows = diffRows_(o, p, [
-      ['typeName', 'ชนิดข้าว', 'text'], ['qty', 'จำนวน', 'num'],
+      ['no', 'เลขที่ใบสั่ง', 'text'], ['typeName', 'ชนิดข้าว', 'text'], ['qty', 'จำนวน', 'num'],
       ['plannedDate', 'วันที่ผลิต', 'date'], ['docNo', 'เลขที่เอกสาร', 'text'], ['forName', 'เพื่อทำออเดอร์', 'text'], ['note', 'หมายเหตุ', 'text'], ['planNote', 'หมายเหตุแผน', 'text']
     ]);
+    if (tkSig_(o) !== tkSig_(p)) rows.push('• แก้ไขตู้/ถัง');
     const fo = formulaTxt_(o.formula), fn = formulaTxt_(p.formula);
     if (rows.length) {
       if (fo !== fn) rows.push('สูตรข้าวใหม่: ' + fn);
@@ -401,6 +439,17 @@ function planMessages_(changes, by, out) {
       formulaOnly.push({ p: p, txt: fn });
     }
   });
+
+  if (merge) { // รวมแก้ไข/ลบ/ปรับลำดับ เป็นข้อความเดียว (แผนที่สร้างใหม่ยังแจ้งแยกตามเดิม)
+    const e = NOTIFY.planEdited ? edited : [], f = NOTIFY.planEdited ? formulaOnly : [], d = NOTIFY.planDeleted ? deleted : [], r = !!(reordered && NOTIFY.planReordered);
+    created.forEach(function (p) {
+      if (!NOTIFY.planCreated) return;
+      out.push(msg_('📋 ออกใบสั่งผลิต', identRows_(p).concat(['วันที่ผลิต: ' + fmtDT_(p.plannedDate)]), by));
+    });
+    reverted.forEach(function (p) { if (NOTIFY.planEdited) out.push(msg_('↩️ ใบสั่งผลิตกลับเป็นรอเริ่มผลิต', identRows_(p), by)); });
+    if (e.length || f.length || d.length || r) out.push(mergedPlanMsg_(e, f, d, r, by));
+    return;
+  }
 
   let queueUsed = false;
   created.forEach(function (p) {
@@ -493,7 +542,7 @@ function orderMessages_(ch, by, out) {
         identRows_(o).concat(summaryRows_(o)).concat(sNew === 'done' ? [] : [
           '— น้ำหนัก input —'].concat((o.inputs || []).filter(function (x) { return +x.kg > 0; }).map(function (x) {
           return '• ' + (x.name || 'ไม่ระบุชื่อ') + (x.tank ? ' [' + x.tank + ']' : '') + ' ' + num_(x.kg) + ' กก. (' + pct_(x.kg, inNew) + ')';
-        })).concat(['รวม input: ' + num_(inNew) + ' กก. (' + num_(inNew / 1000, 3) + ' ตัน) = 100%'])), by));
+        })).concat(['รวม input: ' + num_(inNew) + ' กก. (' + num_(inNew / 1000, 3) + ' ตัน) = 100.00%'])), by));
     }
   }
 
@@ -575,12 +624,12 @@ function planUpdate_(body) {
   }
 }
 
-function notifyChanges_(changes, by) {
+function notifyChanges_(changes, by, merge) {
   const token = props_().getProperty('LINE_TOKEN');
   const to = getTo_();
   if (!token || !to.length) return;
   const out = [];
-  planMessages_(changes, by, out);
+  planMessages_(changes, by, out, merge);
   changes.forEach(function (ch) { orderMessages_(ch, by, out); });
   if (out.length) pushLine_(token, to, out);
 }
